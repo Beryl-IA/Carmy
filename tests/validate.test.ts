@@ -86,3 +86,13 @@ describe('format', () => {
     expect(formatUnit('piece', 3)).toBe('');
   });
 });
+
+describe('sortModels', () => {
+  it('met le flash stable le plus récent en premier', async () => {
+    const { sortModels } = await import('../src/extraction/gemini');
+    const ids = ['gemini-2.5-flash', 'gemini-3.8-pro', 'gemini-3.8-flash-lite', 'gemini-3.8-flash', 'gemini-3.9-flash-preview', 'gemini-2.0-flash'];
+    expect(sortModels(ids.map((id) => ({ id }))).map((m) => m.id)).toEqual([
+      'gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-3.8-flash-lite', 'gemini-3.9-flash-preview', 'gemini-3.8-pro',
+    ]);
+  });
+});

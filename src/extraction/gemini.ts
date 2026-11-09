@@ -286,11 +286,34 @@ export async function listGeminiModels(apiKey: string): Promise<GeminiModelInfo[
     for (const m of json.models ?? []) {
       if (!m.supportedGenerationMethods?.includes('generateContent')) continue;
       const id = m.name.replace(/^models\//, '');
-      if (!/gemini/i.test(id)) continue;
+      if (!/gemini/i.test(id) || UNSUITED_MODEL.test(id)) continue;
       out.push({ id, label: m.displayName ? `${m.displayName} (${id})` : id });
     }
     pageToken = json.nextPageToken ?? '';
   } while (pageToken);
-  // Les modèles « flash » (gratuits) d'abord.
-  return out.sort((a, b) => Number(/flash/i.test(b.id)) - Number(/flash/i.test(a.id)) || a.id.localeCompare(b.id));
+  return sortModels(out);
+}
+
+/** Modèles qui ne savent pas analyser une vidéo en texte (synthèse vocale, images, temps réel…). */
+const UNSUITED_MODEL = /tts|image|live|audio|embedding|robotics|computer-use|aqa/i;
+
+function modelVersion(id: string): number {
+  const m = /gemini-(\d+(?:\.\d+)?)/i.exec(id);
+  return m?.[1] ? Number(m[1]) : 0;
+}
+
+/**
+ * Ordre de préférence : « flash » stable d'abord, du plus récent au plus ancien
+ * (les anciennes versions peuvent être refusées aux nouveaux comptes), puis lite, preview, le reste.
+ */
+export function sortModels<T extends { id: string }>(models: T[]): T[] {
+  const rank = (id: string) => {
+    if (!/flash/i.test(id)) return 3;
+    if (/preview|exp/i.test(id)) return 2;
+    if (/lite/i.test(id)) return 1;
+    return 0;
+  };
+  return [...models].sort(
+    (a, b) => rank(a.id) - rank(b.id) || modelVersion(b.id) - modelVersion(a.id) || a.id.localeCompare(b.id),
+  );
 }
