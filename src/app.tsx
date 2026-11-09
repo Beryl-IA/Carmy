@@ -37,6 +37,9 @@ export function App() {
   const [copied, setCopied] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
   const abortRef = useRef<AbortController | null>(null);
+  const [startedAt, setStartedAt] = useState(0);
+  const [now, setNow] = useState(Date.now());
+  const [wentBackground, setWentBackground] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -49,6 +52,19 @@ export function App() {
       window.removeEventListener('offline', down);
     };
   }, []);
+
+  const isRunning = status.kind === 'running';
+  // Chronomètre + détection du passage en arrière-plan (iOS suspend alors les requêtes).
+  useEffect(() => {
+    if (!isRunning) return;
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    const onVis = () => { if (document.visibilityState === 'hidden') setWentBackground(true); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(tick);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [isRunning]);
 
   useEffect(() => () => { if (thumbUrl) URL.revokeObjectURL(thumbUrl); }, [thumbUrl]);
 
@@ -73,6 +89,9 @@ export function App() {
     const controller = new AbortController();
     abortRef.current = controller;
     setCopied(false);
+    setWentBackground(false);
+    setStartedAt(Date.now());
+    setNow(Date.now());
     setStatus({ kind: 'running', phase: 'envoi' });
     try {
       const provider = new GeminiProvider({ apiKey: settings.apiKey.trim(), model: settings.model, forceFilesApi: settings.forceFilesApi });
@@ -174,10 +193,17 @@ export function App() {
           {!ready && <p class="muted small">Configure d'abord la clé et le modèle ci-dessus.</p>}
 
           {running ? (
-            <div class="progress" role="status">
-              <span class="spinner" aria-hidden="true" />
-              <span>{PHASE_LABELS[status.phase]}</span>
-              <button type="button" class="btn small ghost" onClick={() => abortRef.current?.abort()}>Annuler</button>
+            <div class="stack">
+              <div class="progress" role="status">
+                <span class="spinner" aria-hidden="true" />
+                <span>{PHASE_LABELS[status.phase]} <span class="muted">{formatDuration(Math.max(0, Math.round((now - startedAt) / 1000)))}</span></span>
+                <button type="button" class="btn small ghost" onClick={() => abortRef.current?.abort()}>Annuler</button>
+              </div>
+              {wentBackground ? (
+                <p class="warn-text small">L'appli est passée en arrière-plan : iOS a pu interrompre l'analyse. Si le chrono dépasse 2 min, touche Annuler puis réessaie en restant sur l'appli.</p>
+              ) : (
+                <p class="muted small">Reste sur l'appli pendant l'analyse : si tu en changes, iOS la met en pause. Compte en général moins d'une minute.</p>
+              )}
             </div>
           ) : (
             <button type="button" class="btn" disabled={!file || !ready || !online} onClick={() => void run()}>

@@ -55,12 +55,27 @@ function headers(apiKey: string, extra: Record<string, string> = {}): Record<str
   return { 'x-goog-api-key': apiKey, ...extra };
 }
 
-async function call(input: string, init: RequestInit, step: string): Promise<Response> {
+/** Durées maximales par étape : sans elles, une requête coupée par iOS peut attendre indéfiniment. */
+export const TIMEOUTS_MS = { court: 30_000, envoi: 5 * 60_000, analyse: 4 * 60_000 } as const;
+
+function withTimeout(signal: AbortSignal | null | undefined, ms: number): AbortSignal {
+  const t = AbortSignal.timeout(ms);
+  return signal && typeof AbortSignal.any === 'function' ? AbortSignal.any([signal, t]) : (signal ?? t);
+}
+
+async function call(input: string, init: RequestInit, step: string, timeoutMs: number = TIMEOUTS_MS.court): Promise<Response> {
   let res: Response;
+  const signal = withTimeout(init.signal, timeoutMs);
   try {
-    res = await fetch(input, init);
+    res = await fetch(input, { ...init, signal });
   } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') throw new ExtractionError('annule', 'Extraction annulée.');
+    if (init.signal?.aborted) throw new ExtractionError('annule', 'Extraction annulée.');
+    if (signal.aborted)
+      throw new ExtractionError(
+        'reseau',
+        `Pas de réponse de Google après ${Math.round(timeoutMs / 60_000) || 1} min (${step}). Garde l'appli ouverte pendant l'analyse, puis réessaie.`,
+        `${step} — délai dépassé (${timeoutMs} ms)`,
+      );
     // Sur Safari, une erreur CORS ressemble à une erreur réseau : on précise l'étape (risque R1).
     throw new ExtractionError('reseau', `Erreur réseau pendant : ${step}. Vérifie ta connexion.`, `${step} — ${String(e)}`);
   }
@@ -198,7 +213,22 @@ export class GeminiProvider implements ExtractionProvider {
     }
   }
 
+  /** Réflexion réduite pour accélérer l'analyse ; désactivée si le modèle ne la gère pas. */
+  private lowThinking = true;
+
   private async generateOnce(parts: Part[], signal?: AbortSignal): Promise<{ text: string; totalTokens?: number }> {
+    try {
+      return await this.generateRequest(parts, signal);
+    } catch (e) {
+      if (this.lowThinking && e instanceof ExtractionError && /HTTP 400/.test(e.detail ?? '') && /thinking/i.test(e.detail ?? '')) {
+        this.lowThinking = false;
+        return this.generateRequest(parts, signal);
+      }
+      throw e;
+    }
+  }
+
+  private async generateRequest(parts: Part[], signal?: AbortSignal): Promise<{ text: string; totalTokens?: number }> {
     const body = {
       systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
       contents: [{ role: 'user', parts }],
@@ -206,12 +236,14 @@ export class GeminiProvider implements ExtractionProvider {
         responseMimeType: 'application/json',
         responseSchema: RESPONSE_SCHEMA,
         temperature: 0.2,
+        ...(this.lowThinking ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
       },
     };
     const res = await call(
       `${API}/v1beta/models/${encodeURIComponent(this.model)}:generateContent`,
       { method: 'POST', headers: headers(this.config.apiKey, { 'Content-Type': 'application/json' }), body: JSON.stringify(body), signal },
       'analyse par l\'IA (generateContent)',
+      TIMEOUTS_MS.analyse,
     );
     const json = (await res.json()) as {
       candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
@@ -257,6 +289,7 @@ export class GeminiProvider implements ExtractionProvider {
         signal,
       },
       'Files API : envoi de la vidéo',
+      TIMEOUTS_MS.envoi,
     );
     const json = (await res.json()) as { file?: GeminiFile };
     if (!json.file?.name || !json.file.uri) throw new ExtractionError('api', 'Files API : réponse d\'envoi inattendue.');
