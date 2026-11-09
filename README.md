@@ -30,3 +30,12 @@ Safari → ouvrir l'adresse de l'appli → bouton **Partager** → **Sur l'écra
 1. Aller sur Google AI Studio (aistudio.google.com) → **Get API key** → créer une clé.
 2. Dans l'appli : **Réglages de l'IA** → coller la clé → **Tester la clé** → choisir un modèle « Flash ».
 3. La clé est stockée uniquement sur l'appareil. Ne jamais la committer.
+
+L'abonnement grand public Gemini (Google AI Pro/Ultra) ne s'applique pas à l'API : la clé AI Studio reste sur l'offre gratuite de l'API tant que la facturation n'est pas activée sur son projet.
+
+## Bilan du jalon 1 (09/11/2026)
+
+- **Go** : extraction validée sur iPhone 13 avec le modèle **`gemini-3.5-flash-lite`**.
+- **R1 (Files API depuis Safari iOS)** : OK — envoi résumable, attente `ACTIVE` et analyse fonctionnent.
+- **Écueils rencontrés** : `gemini-2.5-flash` est refusé aux nouveaux comptes (bascule automatique sur le modèle suggéré par Google) ; avec `gemini-3.8-flash`, aucune réponse en 4 min sur une vidéo d'1 min.
+- Le modèle reste un réglage (bouton « Tester le modèle » pour mesurer la latence).
