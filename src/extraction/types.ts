@@ -1,30 +1,8 @@
 // Types partagés du cahier des charges (§7) utiles dès le jalon 1.
 
-export const AISLES = [
-  'fruits_legumes', 'boucherie_poissonnerie', 'cremerie_oeufs', 'boulangerie',
-  'epicerie_salee', 'epicerie_sucree', 'surgeles', 'boissons', 'condiments_epices', 'autre',
-] as const;
-export type Aisle = (typeof AISLES)[number];
-
-export const UNITS = [
-  'g', 'kg', 'ml', 'cl', 'l', 'c_cafe', 'c_soupe', 'piece',
-  'pincee', 'gousse', 'tranche', 'sachet', 'boite', 'bouquet',
-] as const;
-export type Unit = (typeof UNITS)[number] | null;
-
-export interface Ingredient {
-  name: string;
-  quantity: number | null;
-  unit: Unit;
-  aisle: Aisle;
-  note?: string;
-  optional?: boolean;
-}
-
-export interface Step {
-  text: string;
-  timerSeconds?: number | null;
-}
+export { AISLES, UNITS } from '../model/types';
+export type { Aisle, Unit, Ingredient, Step } from '../model/types';
+import type { Ingredient, Step } from '../model/types';
 
 /** Résultat brut de l'IA, validé et normalisé (§8). */
 export interface ExtractedRecipe {

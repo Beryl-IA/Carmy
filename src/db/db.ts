@@ -1,0 +1,129 @@
+// Stockage local IndexedDB (via `idb`). Aucune donnée ne quitte l'appareil.
+import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import { DEFAULT_SETTINGS, type Collection, type Recipe, type Settings } from '../model/types';
+
+const DB_NAME = 'carmy';
+const DB_VERSION = 1;
+
+interface CarmyDB extends DBSchema {
+  recipes: { key: string; value: Recipe; indexes: { updatedAt: number } };
+  collections: { key: string; value: Collection };
+  /** Petits objets uniques : réglages, état des courses, garde-manger… */
+  kv: { key: string; value: unknown };
+  /** File d'attente d'extraction (jalon 6), créée dès maintenant pour éviter une migration. */
+  queue: { key: string; value: { id: string; createdAt: number } & Record<string, unknown> };
+}
+
+let dbPromise: Promise<IDBPDatabase<CarmyDB>> | null = null;
+
+export function getDb(): Promise<IDBPDatabase<CarmyDB>> {
+  dbPromise ??= openDB<CarmyDB>(DB_NAME, DB_VERSION, {
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
+        const recipes = db.createObjectStore('recipes', { keyPath: 'id' });
+        recipes.createIndex('updatedAt', 'updatedAt');
+        db.createObjectStore('collections', { keyPath: 'id' });
+        db.createObjectStore('kv');
+        db.createObjectStore('queue', { keyPath: 'id' });
+      }
+    },
+  });
+  return dbPromise;
+}
+
+/** Réservé aux tests. */
+export async function resetDbForTests(): Promise<void> {
+  if (dbPromise) (await dbPromise).close();
+  dbPromise = null;
+  await new Promise<void>((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ---------- Recettes ----------
+
+/** Toutes les recettes, de la plus récemment modifiée à la plus ancienne. */
+export async function listRecipes(): Promise<Recipe[]> {
+  const all = await (await getDb()).getAllFromIndex('recipes', 'updatedAt');
+  return all.reverse();
+}
+
+export async function getRecipe(id: string): Promise<Recipe | undefined> {
+  return (await getDb()).get('recipes', id);
+}
+
+/**
+ * Enregistre (création ou modification). Une nouvelle recette incrémente le compteur
+ * utilisé par le rappel de sauvegarde (F8).
+ */
+export async function saveRecipe(recipe: Recipe): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction(['recipes', 'kv'], 'readwrite');
+  const existing = await tx.objectStore('recipes').get(recipe.id);
+  await tx.objectStore('recipes').put(recipe);
+  if (!existing) {
+    const s = { ...DEFAULT_SETTINGS, ...((await tx.objectStore('kv').get(SETTINGS_KEY)) as Partial<Settings> | undefined) };
+    await tx.objectStore('kv').put({ ...s, recipesSinceBackup: s.recipesSinceBackup + 1 }, SETTINGS_KEY);
+  }
+  await tx.done;
+}
+
+export async function deleteRecipe(id: string): Promise<void> {
+  await (await getDb()).delete('recipes', id);
+}
+
+// ---------- Réglages ----------
+
+const SETTINGS_KEY = 'settings';
+/** Réglages du prototype J1 (localStorage), migrés une seule fois. */
+const LEGACY_KEY = 'carmy.settings.v0';
+
+export async function loadSettings(): Promise<Settings> {
+  const db = await getDb();
+  const stored = (await db.get('kv', SETTINGS_KEY)) as Partial<Settings> | undefined;
+  if (stored) return { ...DEFAULT_SETTINGS, ...stored };
+
+  let migrated: Settings = { ...DEFAULT_SETTINGS };
+  try {
+    const raw = globalThis.localStorage?.getItem(LEGACY_KEY);
+    if (raw) {
+      const old = JSON.parse(raw) as Partial<Settings> & { apiKey?: string };
+      migrated = {
+        ...migrated,
+        ...(old.apiKey ? { apiKey: old.apiKey } : {}),
+        ...(old.model ? { model: old.model } : {}),
+        ...(typeof old.fastMode === 'boolean' ? { fastMode: old.fastMode } : {}),
+        ...(typeof old.forceFilesApi === 'boolean' ? { forceFilesApi: old.forceFilesApi } : {}),
+      };
+    }
+  } catch { /* localStorage indisponible : réglages par défaut */ }
+  await db.put('kv', migrated, SETTINGS_KEY);
+  try {
+    globalThis.localStorage?.removeItem(LEGACY_KEY);
+  } catch { /* ignore */ }
+  return migrated;
+}
+
+export async function saveSettings(settings: Settings): Promise<void> {
+  // On relit le compteur pour ne pas écraser une incrémentation faite par saveRecipe.
+  const db = await getDb();
+  const tx = db.transaction('kv', 'readwrite');
+  const current = (await tx.store.get(SETTINGS_KEY)) as Partial<Settings> | undefined;
+  await tx.store.put({ ...settings, recipesSinceBackup: current?.recipesSinceBackup ?? settings.recipesSinceBackup }, SETTINGS_KEY);
+  await tx.done;
+}
+
+// ---------- Persistance du stockage (F8) ----------
+
+/** Demande au navigateur de ne pas purger les données. Renvoie l'état final. */
+export async function requestPersistence(): Promise<boolean | null> {
+  if (!navigator.storage?.persist) return null;
+  try {
+    if (await navigator.storage.persisted()) return true;
+    return await navigator.storage.persist();
+  } catch {
+    return null;
+  }
+}
