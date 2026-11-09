@@ -5,10 +5,11 @@ export interface ProtoSettings {
   apiKey: string;
   model: string;
   forceFilesApi: boolean;
+  fastMode: boolean;
 }
 
 const KEY = 'carmy.settings.v0';
-const DEFAULTS: ProtoSettings = { apiKey: '', model: '', forceFilesApi: false };
+const DEFAULTS: ProtoSettings = { apiKey: '', model: '', forceFilesApi: false, fastMode: true };
 
 export function loadSettings(): ProtoSettings {
   try {

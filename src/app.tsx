@@ -23,7 +23,7 @@ const LONG_VIDEO_SECONDS = 180;
 
 type Status =
   | { kind: 'idle' }
-  | { kind: 'running'; phase: ExtractionPhase }
+  | { kind: 'running'; phase: ExtractionPhase; chars?: number }
   | { kind: 'done'; report: ExtractionReport }
   | { kind: 'error'; error: ExtractionError };
 
@@ -94,10 +94,14 @@ export function App() {
     setNow(Date.now());
     setStatus({ kind: 'running', phase: 'envoi' });
     try {
-      const provider = new GeminiProvider({ apiKey: settings.apiKey.trim(), model: settings.model, forceFilesApi: settings.forceFilesApi });
+      const provider = new GeminiProvider({ apiKey: settings.apiKey.trim(), model: settings.model, forceFilesApi: settings.forceFilesApi, fastMode: settings.fastMode });
       const report = await provider.extract(
         { kind: 'video', file, fileName: file.name },
-        { signal: controller.signal, onPhase: (phase) => setStatus({ kind: 'running', phase }) },
+        {
+          signal: controller.signal,
+          onPhase: (phase) => setStatus({ kind: 'running', phase }),
+          onReceive: (chars) => setStatus({ kind: 'running', phase: 'analyse', chars }),
+        },
       );
       // Google a imposé un autre modèle : on le mémorise pour les prochaines fois.
       if (report.meta.model !== settings.model) updateSettings({ ...settings, model: report.meta.model });
@@ -196,7 +200,7 @@ export function App() {
             <div class="stack">
               <div class="progress" role="status">
                 <span class="spinner" aria-hidden="true" />
-                <span>{PHASE_LABELS[status.phase]} <span class="muted">{formatDuration(Math.max(0, Math.round((now - startedAt) / 1000)))}</span></span>
+                <span>{status.chars ? `Réception de la réponse (${status.chars} caractères)…` : PHASE_LABELS[status.phase]} <span class="muted">{formatDuration(Math.max(0, Math.round((now - startedAt) / 1000)))}</span></span>
                 <button type="button" class="btn small ghost" onClick={() => abortRef.current?.abort()}>Annuler</button>
               </div>
               {wentBackground ? (
@@ -216,6 +220,13 @@ export function App() {
           <section class="card error-card" role="alert">
             <h2 class="card-title">Échec de l'extraction</h2>
             <p>{status.error.message}</p>
+            {status.error.durationsMs && Object.keys(status.error.durationsMs).length > 0 && (
+              <p class="muted small">
+                {Object.entries(status.error.durationsMs)
+                  .map(([k, v]) => `${PHASE_LABELS[k as ExtractionPhase].replace('…', '')} : ${formatDuration(Math.round(v / 1000))}`)
+                  .join(' · ')}
+              </p>
+            )}
             {status.error.detail && (
               <details>
                 <summary>Détail technique</summary>
@@ -248,6 +259,7 @@ export function App() {
                   <Fragment key={k}><dt>{PHASE_LABELS[k as ExtractionPhase].replace('…', '')}</dt><dd>{(v / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s</dd></Fragment>
                 ))}
                 {status.report.meta.totalTokens !== undefined && (<><dt>Jetons</dt><dd>{status.report.meta.totalTokens.toLocaleString('fr-FR')}</dd></>)}
+                <dt>Analyse rapide</dt><dd>{status.report.meta.fastMode ? 'oui' : 'non'}</dd>
                 <dt>Essais</dt><dd>{status.report.meta.attempts}</dd>
                 {status.report.recipe.detectedLanguage && (<><dt>Langue source</dt><dd>{status.report.recipe.detectedLanguage}</dd></>)}
               </dl>

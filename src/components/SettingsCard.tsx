@@ -78,6 +78,14 @@ export function SettingsCard({ settings, onChange }: Props) {
           <label class="check">
             <input
               type="checkbox"
+              checked={settings.fastMode}
+              onChange={(e) => onChange({ ...settings, fastMode: e.currentTarget.checked })}
+            />
+            <span>Analyse rapide : Google lit la vidéo en basse résolution (beaucoup plus rapide ; décoche si le texte affiché à l'écran est mal lu)</span>
+          </label>
+          <label class="check">
+            <input
+              type="checkbox"
               checked={settings.forceFilesApi}
               onChange={(e) => onChange({ ...settings, forceFilesApi: e.currentTarget.checked })}
             />

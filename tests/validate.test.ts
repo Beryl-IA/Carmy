@@ -107,3 +107,20 @@ describe('suggestedModel', () => {
     expect(suggestedModel(undefined)).toBeNull();
   });
 });
+
+describe('SseAccumulator', () => {
+  it('assemble les morceaux de flux, même coupés au milieu', async () => {
+    const { SseAccumulator } = await import('../src/extraction/gemini');
+    const ev = (o: unknown) => `data: ${JSON.stringify(o)}\r\n\r\n`;
+    const stream =
+      ev({ candidates: [{ content: { parts: [{ text: 'je réfléchis', thought: true }] } }] }) +
+      ev({ candidates: [{ content: { parts: [{ text: '{"isRecipe":' }] } }] }) +
+      ev({ candidates: [{ content: { parts: [{ text: 'false}' }] }, finishReason: 'STOP' }], usageMetadata: { totalTokenCount: 42 } });
+    const acc = new SseAccumulator();
+    for (let i = 0; i < stream.length; i += 7) acc.push(stream.slice(i, i + 7));
+    acc.flush();
+    expect(acc.text).toBe('{"isRecipe":false}');
+    expect(acc.totalTokens).toBe(42);
+    expect(acc.finishReason).toBe('STOP');
+  });
+});

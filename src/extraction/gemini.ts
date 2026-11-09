@@ -20,6 +20,8 @@ export interface GeminiConfig {
   model: string;
   /** Pour tester R1 : forcer la Files API même pour une petite vidéo. */
   forceFilesApi?: boolean;
+  /** Analyse rapide : vidéo lue en basse résolution par Gemini (moins de jetons, plus rapide). */
+  fastMode?: boolean;
 }
 
 interface Part {
@@ -131,12 +133,14 @@ export class GeminiProvider implements ExtractionProvider {
 
   constructor(private readonly config: GeminiConfig) {
     this.model = config.model;
+    this.lowResolution = config.fastMode ?? true;
     if (!config.apiKey) throw new ExtractionError('cle', 'Aucune clé API. Ajoute-la dans les réglages.');
     if (!config.model) throw new ExtractionError('api', 'Aucun modèle choisi dans les réglages.');
   }
 
   async extract(input: ExtractionInput, options: ExtractionOptions = {}): Promise<ExtractionReport> {
     const { onPhase, signal } = options;
+    this.onReceive = options.onReceive;
     const durations: Partial<Record<ExtractionPhase, number>> = {};
     let phaseStart = performance.now();
     let current: ExtractionPhase | null = null;
@@ -188,7 +192,7 @@ export class GeminiProvider implements ExtractionProvider {
           return {
             recipe,
             warnings,
-            meta: { provider: this.id, model: this.model, transport, bytes, durationsMs: durations, totalTokens, attempts, rawJson: text },
+            meta: { provider: this.id, model: this.model, transport, bytes, durationsMs: durations, fastMode: this.lowResolution && transport !== 'text', totalTokens, attempts, rawJson: text },
           };
         } catch (e) {
           if (!(e instanceof InvalidRecipeJson)) throw e;
@@ -196,6 +200,14 @@ export class GeminiProvider implements ExtractionProvider {
         }
       }
       throw new ExtractionError('reponse_invalide', `Réponse de l'IA inexploitable après 2 essais : ${lastError?.message ?? ''}`);
+    } catch (e) {
+      // Joint au diagnostic les durées des étapes atteintes, y compris celle en cours.
+      if (e instanceof ExtractionError) {
+        const cur = current as ExtractionPhase | null; // assigné dans la closure `phase`
+        if (cur) durations[cur] = Math.round(performance.now() - phaseStart);
+        e.durationsMs = durations;
+      }
+      throw e;
     } finally {
       if (uploaded) void this.deleteFile(uploaded.name);
     }
@@ -213,21 +225,25 @@ export class GeminiProvider implements ExtractionProvider {
     }
   }
 
-  /** Réflexion réduite pour accélérer l'analyse ; désactivée si le modèle ne la gère pas. */
+  /** Réglages d'accélération ; chacun est retiré si le modèle le refuse (HTTP 400). */
   private lowThinking = true;
+  private lowResolution: boolean;
+  private onReceive?: (chars: number) => void;
 
   private async generateOnce(parts: Part[], signal?: AbortSignal): Promise<{ text: string; totalTokens?: number }> {
-    try {
-      return await this.generateRequest(parts, signal);
-    } catch (e) {
-      if (this.lowThinking && e instanceof ExtractionError && /HTTP 400/.test(e.detail ?? '') && /thinking/i.test(e.detail ?? '')) {
-        this.lowThinking = false;
-        return this.generateRequest(parts, signal);
+    for (;;) {
+      try {
+        return await this.generateRequest(parts, signal);
+      } catch (e) {
+        const d = e instanceof ExtractionError && /HTTP 400/.test(e.detail ?? '') ? e.detail ?? '' : '';
+        if (this.lowThinking && /thinking/i.test(d)) { this.lowThinking = false; continue; }
+        if (this.lowResolution && /resolution/i.test(d)) { this.lowResolution = false; continue; }
+        throw e;
       }
-      throw e;
     }
   }
 
+  /** Réponse en flux (SSE) : on voit arriver le texte, ce qui distingue « Google réfléchit » de « bloqué ». */
   private async generateRequest(parts: Part[], signal?: AbortSignal): Promise<{ text: string; totalTokens?: number }> {
     const body = {
       systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
@@ -237,25 +253,43 @@ export class GeminiProvider implements ExtractionProvider {
         responseSchema: RESPONSE_SCHEMA,
         temperature: 0.2,
         ...(this.lowThinking ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
+        ...(this.lowResolution ? { mediaResolution: 'MEDIA_RESOLUTION_LOW' } : {}),
       },
     };
     const res = await call(
-      `${API}/v1beta/models/${encodeURIComponent(this.model)}:generateContent`,
+      `${API}/v1beta/models/${encodeURIComponent(this.model)}:streamGenerateContent?alt=sse`,
       { method: 'POST', headers: headers(this.config.apiKey, { 'Content-Type': 'application/json' }), body: JSON.stringify(body), signal },
       'analyse par l\'IA (generateContent)',
       TIMEOUTS_MS.analyse,
     );
-    const json = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
-      promptFeedback?: { blockReason?: string };
-      usageMetadata?: { totalTokenCount?: number };
-    };
-    if (json.promptFeedback?.blockReason)
-      throw new ExtractionError('api', `Contenu bloqué par l'IA (${json.promptFeedback.blockReason}).`);
-    const cand = json.candidates?.[0];
-    const text = cand?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
-    if (!text) throw new ExtractionError('api', `Réponse vide de l'IA (${cand?.finishReason ?? 'raison inconnue'}).`);
-    return { text, totalTokens: json.usageMetadata?.totalTokenCount };
+    const acc = new SseAccumulator();
+    try {
+      if (res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          acc.push(decoder.decode(value, { stream: true }));
+          this.onReceive?.(acc.text.length);
+        }
+        acc.push(decoder.decode());
+      } else {
+        acc.push(await res.text());
+      }
+      acc.flush();
+    } catch (e) {
+      if (signal?.aborted) throw new ExtractionError('annule', 'Extraction annulée.');
+      throw new ExtractionError(
+        'reseau',
+        `La réponse de Google a été interrompue${acc.text ? ' en cours de route' : ''}. Garde l'appli ouverte, puis réessaie.`,
+        `réception du flux — ${String(e)} — ${acc.text.length} caractères reçus`,
+      );
+    }
+    if (acc.blockReason) throw new ExtractionError('api', `Contenu bloqué par l'IA (${acc.blockReason}).`);
+    if (acc.error) throw new ExtractionError('api', `Erreur de l'API : ${acc.error}`, acc.error);
+    if (!acc.text) throw new ExtractionError('api', `Réponse vide de l'IA (${acc.finishReason ?? 'raison inconnue'}).`);
+    return { text: acc.text, totalTokens: acc.totalTokens };
   }
 
   /** Files API, protocole « resumable » : start → upload+finalize. */
@@ -324,6 +358,57 @@ export function suggestedModel(detail: string | undefined): string | null {
   if (!detail || !/HTTP 404/.test(detail)) return null;
   const m = /use\s+models\/([a-z0-9][\w.-]*[a-z0-9])/i.exec(detail);
   return m?.[1] ?? null;
+}
+
+interface StreamChunk {
+  candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
+  promptFeedback?: { blockReason?: string };
+  usageMetadata?: { totalTokenCount?: number };
+  error?: { message?: string };
+}
+
+/** Assemble les événements SSE de streamGenerateContent (« data: {...} » séparés par une ligne vide). */
+export class SseAccumulator {
+  text = '';
+  totalTokens?: number;
+  finishReason?: string;
+  blockReason?: string;
+  error?: string;
+  private buffer = '';
+
+  push(chunk: string): void {
+    this.buffer += chunk.replace(/\r\n/g, '\n');
+    let i: number;
+    while ((i = this.buffer.indexOf('\n\n')) >= 0) {
+      this.handle(this.buffer.slice(0, i));
+      this.buffer = this.buffer.slice(i + 2);
+    }
+  }
+
+  flush(): void {
+    if (this.buffer.trim()) this.handle(this.buffer);
+    this.buffer = '';
+  }
+
+  private handle(event: string): void {
+    const data = event.split('\n').filter((l) => l.startsWith('data:')).map((l) => l.slice(5).trimStart()).join('\n');
+    const raw = data || event.trim();
+    if (!raw) return;
+    let json: StreamChunk | StreamChunk[];
+    try {
+      json = JSON.parse(raw) as StreamChunk | StreamChunk[];
+    } catch {
+      return;
+    }
+    for (const c of Array.isArray(json) ? json : [json]) {
+      if (c.error?.message) this.error = c.error.message;
+      if (c.promptFeedback?.blockReason) this.blockReason = c.promptFeedback.blockReason;
+      if (c.usageMetadata?.totalTokenCount) this.totalTokens = c.usageMetadata.totalTokenCount;
+      const cand = c.candidates?.[0];
+      if (cand?.finishReason) this.finishReason = cand.finishReason;
+      for (const part of cand?.content?.parts ?? []) if (part.text && !part.thought) this.text += part.text;
+    }
+  }
 }
 
 export interface GeminiModelInfo {

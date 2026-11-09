@@ -56,6 +56,7 @@ export interface ExtractionReport {
     transport: 'inline' | 'files_api' | 'text';
     bytes?: number;
     durationsMs: Partial<Record<ExtractionPhase, number>>;
+    fastMode?: boolean;
     totalTokens?: number;
     attempts: number;
     rawJson: string;
@@ -64,6 +65,8 @@ export interface ExtractionReport {
 
 export interface ExtractionOptions {
   onPhase?: (phase: ExtractionPhase) => void;
+  /** Nombre de caractères de réponse reçus (réponse en flux). */
+  onReceive?: (chars: number) => void;
   signal?: AbortSignal;
 }
 
@@ -77,6 +80,9 @@ export interface ExtractionProvider {
 export type ExtractionErrorKind = 'cle' | 'quota' | 'reseau' | 'trop_gros' | 'reponse_invalide' | 'api' | 'annule';
 
 export class ExtractionError extends Error {
+  /** Durées des étapes atteintes avant l'échec (diagnostic). */
+  durationsMs?: Partial<Record<ExtractionPhase, number>>;
+
   constructor(public readonly kind: ExtractionErrorKind, message: string, public readonly detail?: string) {
     super(message);
     this.name = 'ExtractionError';
