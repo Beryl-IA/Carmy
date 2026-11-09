@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { listGeminiModels, type GeminiModelInfo } from '../extraction/gemini';
+import { GeminiProvider, listGeminiModels, type GeminiModelInfo } from '../extraction/gemini';
 import { ExtractionError } from '../extraction/types';
 import type { ProtoSettings } from '../settings';
 
@@ -14,6 +14,32 @@ export function SettingsCard({ settings, onChange }: Props) {
   const [models, setModels] = useState<GeminiModelInfo[]>([]);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [testing, setTesting] = useState(false);
+
+  const [modelTest, setModelTest] = useState<{ ok: boolean; text: string } | null>(null);
+  const [testingModel, setTestingModel] = useState(false);
+
+  /** Mini-recette en texte, mêmes réglages que pour une vidéo : isole la lenteur du modèle de celle de la vidéo. */
+  async function testModel() {
+    setTestingModel(true);
+    setModelTest(null);
+    const t0 = performance.now();
+    try {
+      const provider = new GeminiProvider({ apiKey: settings.apiKey.trim(), model: settings.model, fastMode: settings.fastMode });
+      const report = await provider.extract({
+        kind: 'text',
+        text: 'Omelette pour 2 : 4 oeufs, 10 g de beurre, sel. Battre les oeufs, faire fondre le beurre, cuire 3 minutes.',
+      });
+      const s = ((performance.now() - t0) / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+      const n = report.recipe.ingredients.length;
+      setModelTest({ ok: true, text: `Le modèle répond en ${s} s (${n} ingrédients trouvés, ${report.meta.model}).` });
+      if (report.meta.model !== settings.model) onChange({ ...settings, model: report.meta.model });
+    } catch (e) {
+      const s = Math.round((performance.now() - t0) / 1000);
+      setModelTest({ ok: false, text: `Échec après ${s} s : ${e instanceof ExtractionError ? e.message : String(e)}` });
+    } finally {
+      setTestingModel(false);
+    }
+  }
 
   async function testKey() {
     setTesting(true);
@@ -74,6 +100,10 @@ export function SettingsCard({ settings, onChange }: Props) {
               />
             )}
           </label>
+          <button type="button" class="btn secondary" disabled={!settings.apiKey || !settings.model || testingModel} onClick={testModel}>
+            {testingModel ? 'Test du modèle en cours…' : 'Tester le modèle (texte, sans vidéo)'}
+          </button>
+          {modelTest && <p class={modelTest.ok ? 'ok' : 'error'} role="status">{modelTest.text}</p>}
 
           <label class="check">
             <input

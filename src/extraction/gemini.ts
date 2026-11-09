@@ -58,7 +58,7 @@ function headers(apiKey: string, extra: Record<string, string> = {}): Record<str
 }
 
 /** Durées maximales par étape : sans elles, une requête coupée par iOS peut attendre indéfiniment. */
-export const TIMEOUTS_MS = { court: 30_000, envoi: 5 * 60_000, analyse: 4 * 60_000 } as const;
+export const TIMEOUTS_MS = { court: 30_000, envoi: 5 * 60_000, analyse: 8 * 60_000 } as const;
 
 function withTimeout(signal: AbortSignal | null | undefined, ms: number): AbortSignal {
   const t = AbortSignal.timeout(ms);
