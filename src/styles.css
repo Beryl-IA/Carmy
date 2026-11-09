@@ -105,8 +105,8 @@ input:focus, select:focus { outline: 3px solid rgb(217 83 43 / 30%); border-colo
 .tags { list-style: none; padding: 0; margin: 0; display: flex; gap: 6px; flex-wrap: wrap; }
 .tags li { background: #FDE8C4; border-radius: 99px; padding: 3px 12px; font-size: 14px; font-weight: 600; }
 .ingredients { list-style: none; padding: 0; margin: 0; }
-.ingredients li { display: grid; grid-template-columns: 5.5em 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--bord); }
-.ingredients .qty { font-weight: 700; text-align: right; }
+.ingredients li { display: grid; grid-template-columns: minmax(4.5em, max-content) 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--bord); }
+.ingredients .qty { font-weight: 700; text-align: right; white-space: nowrap; }
 .ingredients .note { color: var(--brun-doux); }
 .ingredients .aisle { display: block; font-size: 12px; color: var(--basilic); }
 .steps { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 10px; }
@@ -195,3 +195,31 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .diag-box { background: var(--carte); border: 1px solid var(--bord); border-radius: 14px; padding: 8px 14px; }
 .diag-box[open] summary { margin-bottom: 8px; }
 .row.center { justify-content: center; }
+
+/* ---------- Jalon 3 : bibliothèque ---------- */
+.search { position: relative; }
+.search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--brun-doux); }
+.search input {
+  font: inherit; width: 100%; min-height: 48px; padding: 10px 14px 10px 42px; border-radius: 14px;
+  border: 1.5px solid var(--bord); background: var(--carte); color: var(--brun); appearance: none; -webkit-appearance: none;
+}
+.chip-row { display: flex; gap: 8px; overflow-x: auto; margin: 0 -16px; padding: 2px 16px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.chip-row::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; font: inherit; font-size: 15px; font-weight: 600; min-height: 40px; padding: 6px 14px; border-radius: 99px;
+  border: 1.5px solid var(--bord); background: var(--carte); color: var(--brun); text-decoration: none; display: inline-flex; align-items: center; white-space: nowrap;
+}
+.chip.tag { border-color: #F3D9A8; }
+.chip.on { background: var(--terracotta); border-color: var(--terracotta); color: #fff; }
+.chip.ghost { border-style: dashed; color: var(--brun-doux); }
+.link-btn { font: inherit; border: 0; background: none; color: var(--terracotta-fonce); text-decoration: underline; padding: 6px 0; min-height: 32px; cursor: pointer; }
+
+.servings { display: flex; align-items: center; gap: 4px 14px; flex-wrap: wrap; }
+.servings .stepper { background: #FDE8C4; border-radius: 14px; padding: 4px; gap: 8px; font-size: 16px; }
+.servings .icon-btn { width: 40px; height: 40px; }
+.tags.suggestions button.on { background: var(--basilic); border: 1.5px solid var(--basilic); color: #fff; }
+.danger-text { color: var(--erreur) !important; }
+
+.list { list-style: none; margin: 0; padding: 4px 16px; }
+.list li { display: flex; align-items: center; gap: 8px; min-height: 56px; border-bottom: 1px solid var(--bord); }
+.list li:last-child { border-bottom: 0; }

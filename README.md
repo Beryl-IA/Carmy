@@ -2,7 +2,7 @@
 
 Appli personnelle (PWA pour iPhone) qui transforme une vidéo de recette en fiche structurée, puis en liste de courses. Cahier des charges : [`docs/cahier-des-charges-carmy.md`](docs/cahier-des-charges-carmy.md).
 
-**État : jalons J0, J1 et J2 livrés** (PWA installable, extraction Gemini, relecture et enregistrement local des recettes).
+**État : jalons J0 à J3 livrés** (PWA installable, extraction Gemini, relecture et enregistrement local, bibliothèque avec recherche, tags, collections et portions).
 
 ## Lancer en local
 

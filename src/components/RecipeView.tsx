@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import type { Recipe } from '../model/types';
 import { AISLE_LABELS, formatDuration, formatQuantity, formatUnit } from '../format';
 
@@ -5,19 +6,24 @@ interface Props {
   recipe: Pick<Recipe, 'title' | 'servings' | 'prepMinutes' | 'cookMinutes' | 'tags' | 'ingredients' | 'steps'>;
   thumbnailUrl?: string | null;
   sourceUrl?: string;
+  /** Remplace l'affichage simple des portions (ex. sélecteur de portions). */
+  servingsNode?: ComponentChildren;
+  /** Contenu inséré après les étapes (actions, collections…). */
+  children?: ComponentChildren;
 }
 
-export function RecipeView({ recipe, thumbnailUrl, sourceUrl }: Props) {
+export function RecipeView({ recipe, thumbnailUrl, sourceUrl, servingsNode, children }: Props) {
   return (
     <article class="recipe">
       {thumbnailUrl && <img class="recipe-thumb" src={thumbnailUrl} alt="" />}
       <div class="recipe-body">
         <h2 class="recipe-title">{recipe.title}</h2>
         <ul class="recipe-facts">
-          <li>{recipe.servings} {recipe.servings > 1 ? 'portions' : 'portion'}</li>
+          {!servingsNode && <li>{recipe.servings} {recipe.servings > 1 ? 'portions' : 'portion'}</li>}
           {recipe.prepMinutes != null && <li>Préparation {recipe.prepMinutes} min</li>}
           {recipe.cookMinutes != null && <li>Cuisson {recipe.cookMinutes} min</li>}
         </ul>
+        {servingsNode}
         {recipe.tags.length > 0 && (
           <ul class="tags">{recipe.tags.map((t) => <li key={t}>{t}</li>)}</ul>
         )}
@@ -49,6 +55,7 @@ export function RecipeView({ recipe, thumbnailUrl, sourceUrl }: Props) {
             </li>
           ))}
         </ol>
+        {children}
       </div>
     </article>
   );

@@ -5,6 +5,8 @@ export type Tab = 'recettes' | 'ajouter' | 'courses' | 'reglages';
 export type Route =
   | { name: 'recettes' }
   | { name: 'recette'; id: string }
+  | { name: 'modifier'; id: string }
+  | { name: 'collections' }
   | { name: 'ajouter' }
   | { name: 'courses' }
   | { name: 'reglages' };
@@ -13,7 +15,9 @@ export function parseHash(hash: string): Route {
   const [, page = '', id = ''] = hash.replace(/^#/, '').split('/');
   switch (page) {
     case 'recette':
-      return id ? { name: 'recette', id: decodeURIComponent(id) } : { name: 'recettes' };
+    case 'modifier':
+      return id ? { name: page, id: decodeURIComponent(id) } : { name: 'recettes' };
+    case 'collections':
     case 'ajouter':
     case 'courses':
     case 'reglages':
@@ -24,11 +28,11 @@ export function parseHash(hash: string): Route {
 }
 
 export function routeToHash(r: Route): string {
-  return r.name === 'recette' ? `#/recette/${encodeURIComponent(r.id)}` : `#/${r.name}`;
+  return r.name === 'recette' || r.name === 'modifier' ? `#/${r.name}/${encodeURIComponent(r.id)}` : `#/${r.name}`;
 }
 
 export function tabOf(r: Route): Tab {
-  return r.name === 'recette' ? 'recettes' : r.name;
+  return r.name === 'recette' || r.name === 'modifier' || r.name === 'collections' ? 'recettes' : r.name;
 }
 
 export function navigate(r: Route): void {
@@ -44,6 +48,11 @@ export function useRoute(): Route {
       window.scrollTo(0, 0);
     };
     window.addEventListener('hashchange', on);
+    // L'ancre a pu changer entre le premier rendu et l'abonnement.
+    setRoute((r) => {
+      const now = parseHash(location.hash);
+      return routeToHash(now) === routeToHash(r) ? r : now;
+    });
     return () => window.removeEventListener('hashchange', on);
   }, []);
   return route;

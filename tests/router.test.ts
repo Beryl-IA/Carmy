@@ -12,5 +12,9 @@ describe('router', () => {
   it('fait l\'aller-retour', () => {
     expect(parseHash(routeToHash({ name: 'recette', id: 'x/y' }))).toEqual({ name: 'recette', id: 'x/y' });
     expect(tabOf({ name: 'recette', id: 'x' })).toBe('recettes');
+    expect(parseHash('#/modifier/abc')).toEqual({ name: 'modifier', id: 'abc' });
+    expect(parseHash('#/collections')).toEqual({ name: 'collections' });
+    expect(routeToHash({ name: 'modifier', id: 'a' })).toBe('#/modifier/a');
+    expect(tabOf({ name: 'collections' })).toBe('recettes');
   });
 });

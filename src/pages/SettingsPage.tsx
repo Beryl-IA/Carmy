@@ -28,7 +28,7 @@ export function SettingsPage({ settings, onChange, persisted }: Props) {
             <button type="button" class="icon-btn" aria-label="Plus" onClick={() => setServings(settings.defaultServings + 1)}>+</button>
           </div>
         </div>
-        <p class="muted small">Utilisé pour la saisie à la main (et, plus tard, l'affichage des fiches et les courses).</p>
+        <p class="muted small">Nombre de portions affiché à l'ouverture d'une fiche (les quantités sont recalculées) et proposé pour la saisie à la main.</p>
       </section>
 
       <section class="card stack">
