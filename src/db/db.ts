@@ -74,6 +74,47 @@ export async function deleteRecipe(id: string): Promise<void> {
   await (await getDb()).delete('recipes', id);
 }
 
+// ---------- Collections ----------
+
+export async function listCollections(): Promise<Collection[]> {
+  const all = await (await getDb()).getAll('collections');
+  return all.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+}
+
+/** Création ou renommage. */
+export async function saveCollection(c: Collection): Promise<void> {
+  await (await getDb()).put('collections', c);
+}
+
+/** Supprime la collection et la retire des recettes (les recettes, elles, sont conservées). */
+export async function deleteCollection(id: string): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction(['collections', 'recipes'], 'readwrite');
+  await tx.objectStore('collections').delete(id);
+  let cursor = await tx.objectStore('recipes').openCursor();
+  while (cursor) {
+    if (cursor.value.collectionIds.includes(id))
+      await cursor.update({ ...cursor.value, collectionIds: cursor.value.collectionIds.filter((x) => x !== id) });
+    cursor = await cursor.continue();
+  }
+  await tx.done;
+}
+
+/** Ajoute ou retire une recette d'une collection, sans toucher à sa date de modification. */
+export async function setRecipeInCollection(recipeId: string, collectionId: string, inside: boolean): Promise<Recipe | undefined> {
+  const db = await getDb();
+  const tx = db.transaction('recipes', 'readwrite');
+  const r = await tx.store.get(recipeId);
+  if (r) {
+    const ids = r.collectionIds.filter((x) => x !== collectionId);
+    if (inside) ids.push(collectionId);
+    r.collectionIds = ids;
+    await tx.store.put(r);
+  }
+  await tx.done;
+  return r;
+}
+
 // ---------- Réglages ----------
 
 const SETTINGS_KEY = 'settings';
