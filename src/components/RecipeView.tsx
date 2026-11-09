@@ -1,8 +1,8 @@
-import type { ExtractedRecipe } from '../extraction/types';
+import type { Recipe } from '../model/types';
 import { AISLE_LABELS, formatDuration, formatQuantity, formatUnit } from '../format';
 
 interface Props {
-  recipe: ExtractedRecipe;
+  recipe: Pick<Recipe, 'title' | 'servings' | 'prepMinutes' | 'cookMinutes' | 'tags' | 'ingredients' | 'steps'>;
   thumbnailUrl?: string | null;
   sourceUrl?: string;
 }
@@ -15,8 +15,8 @@ export function RecipeView({ recipe, thumbnailUrl, sourceUrl }: Props) {
         <h2 class="recipe-title">{recipe.title}</h2>
         <ul class="recipe-facts">
           <li>{recipe.servings} {recipe.servings > 1 ? 'portions' : 'portion'}</li>
-          {recipe.prepMinutes !== null && <li>Préparation {recipe.prepMinutes} min</li>}
-          {recipe.cookMinutes !== null && <li>Cuisson {recipe.cookMinutes} min</li>}
+          {recipe.prepMinutes != null && <li>Préparation {recipe.prepMinutes} min</li>}
+          {recipe.cookMinutes != null && <li>Cuisson {recipe.cookMinutes} min</li>}
         </ul>
         {recipe.tags.length > 0 && (
           <ul class="tags">{recipe.tags.map((t) => <li key={t}>{t}</li>)}</ul>

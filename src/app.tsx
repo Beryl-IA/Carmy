@@ -1,289 +1,54 @@
-// Jalon 1 : prototype d'extraction sur une page unique.
-// Les onglets (Recettes · Ajouter · Courses · Réglages) arrivent au jalon 2.
-import { Fragment } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
-import { APP_NAME } from './config';
-import { RecipeView } from './components/RecipeView';
-import { SettingsCard } from './components/SettingsCard';
-import { GeminiProvider, INLINE_MAX_BYTES } from './extraction/gemini';
-import { ExtractionError, type ExtractionPhase, type ExtractionReport } from './extraction/types';
-import { formatBytes, formatDuration } from './format';
-import { extractThumbnail, videoDuration } from './media/thumbnail';
+import { useEffect, useState } from 'preact/hooks';
+import { TabBar } from './components/TabBar';
+import { loadSettings, requestPersistence, saveSettings } from './db/db';
+import type { Settings } from './model/types';
+import { AddPage } from './pages/AddPage';
+import { RecipePage } from './pages/RecipePage';
+import { RecipesPage } from './pages/RecipesPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { ShoppingPage } from './pages/ShoppingPage';
 import { UpdateBanner } from './pwa/UpdateBanner';
-import { loadSettings, saveSettings, type ProtoSettings } from './settings';
-
-const PHASE_LABELS: Record<ExtractionPhase, string> = {
-  envoi: 'Envoi…',
-  traitement: 'Traitement de la vidéo par Google…',
-  analyse: 'Analyse…',
-  mise_en_forme: 'Mise en forme…',
-};
-
-const LONG_VIDEO_SECONDS = 180;
-
-type Status =
-  | { kind: 'idle' }
-  | { kind: 'running'; phase: ExtractionPhase; chars?: number }
-  | { kind: 'done'; report: ExtractionReport }
-  | { kind: 'error'; error: ExtractionError };
+import { tabOf, useRoute } from './router';
 
 export function App() {
-  const [settings, setSettings] = useState<ProtoSettings>(loadSettings);
-  const [file, setFile] = useState<File | null>(null);
-  const [duration, setDuration] = useState<number | null>(null);
-  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
-  const [sourceUrl, setSourceUrl] = useState('');
-  const [status, setStatus] = useState<Status>({ kind: 'idle' });
-  const [copied, setCopied] = useState(false);
-  const [online, setOnline] = useState(navigator.onLine);
-  const abortRef = useRef<AbortController | null>(null);
-  const [startedAt, setStartedAt] = useState(0);
-  const [now, setNow] = useState(Date.now());
-  const [wentBackground, setWentBackground] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const route = useRoute();
+  const tab = tabOf(route);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [persisted, setPersisted] = useState<boolean | null>(null);
+  /** Incrémenté après chaque enregistrement pour rafraîchir la bibliothèque. */
+  const [dataVersion, setDataVersion] = useState(0);
 
   useEffect(() => {
-    const up = () => setOnline(true);
-    const down = () => setOnline(false);
-    window.addEventListener('online', up);
-    window.addEventListener('offline', down);
-    return () => {
-      window.removeEventListener('online', up);
-      window.removeEventListener('offline', down);
-    };
+    loadSettings().then(setSettings, (e) => setLoadError(String(e)));
+    void requestPersistence().then(setPersisted);
   }, []);
 
-  const isRunning = status.kind === 'running';
-  // Chronomètre + détection du passage en arrière-plan (iOS suspend alors les requêtes).
-  useEffect(() => {
-    if (!isRunning) return;
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    const onVis = () => { if (document.visibilityState === 'hidden') setWentBackground(true); };
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      clearInterval(tick);
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, [isRunning]);
-
-  useEffect(() => () => { if (thumbUrl) URL.revokeObjectURL(thumbUrl); }, [thumbUrl]);
-
-  function updateSettings(s: ProtoSettings) {
+  function updateSettings(s: Settings) {
     setSettings(s);
-    saveSettings(s);
+    void saveSettings(s);
   }
 
-  async function onPick(f: File | null) {
-    setFile(f);
-    setStatus({ kind: 'idle' });
-    setDuration(null);
-    setThumbUrl(null);
-    if (!f) return;
-    const [d, thumb] = await Promise.all([videoDuration(f), extractThumbnail(f)]);
-    setDuration(d);
-    setThumbUrl(thumb ? URL.createObjectURL(thumb) : null);
-  }
-
-  async function run() {
-    if (!file) return;
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setCopied(false);
-    setWentBackground(false);
-    setStartedAt(Date.now());
-    setNow(Date.now());
-    setStatus({ kind: 'running', phase: 'envoi' });
-    try {
-      const provider = new GeminiProvider({ apiKey: settings.apiKey.trim(), model: settings.model, forceFilesApi: settings.forceFilesApi, fastMode: settings.fastMode });
-      const report = await provider.extract(
-        { kind: 'video', file, fileName: file.name },
-        {
-          signal: controller.signal,
-          onPhase: (phase) => setStatus({ kind: 'running', phase }),
-          onReceive: (chars) => setStatus({ kind: 'running', phase: 'analyse', chars }),
-        },
-      );
-      // Google a imposé un autre modèle : on le mémorise pour les prochaines fois.
-      if (report.meta.model !== settings.model) updateSettings({ ...settings, model: report.meta.model });
-      setStatus({ kind: 'done', report });
-    } catch (e) {
-      const error = e instanceof ExtractionError ? e : new ExtractionError('api', 'Erreur inattendue.', String(e));
-      setStatus({ kind: 'error', error });
-    } finally {
-      abortRef.current = null;
-    }
-  }
-
-  function reset() {
-    setFile(null);
-    setThumbUrl(null);
-    setDuration(null);
-    setSourceUrl('');
-    setStatus({ kind: 'idle' });
-    if (inputRef.current) inputRef.current.value = '';
-  }
-
-  async function copyResult(report: ExtractionReport) {
-    const payload = {
-      fichier: file ? { nom: file.name, taille: file.size, type: file.type, duree: duration } : null,
-      lien: sourceUrl || null,
-      meta: { ...report.meta, rawJson: undefined },
-      avertissements: report.warnings,
-      recette: report.recipe,
-    };
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  }
-
-  const running = status.kind === 'running';
-  const ready = Boolean(settings.apiKey && settings.model);
+  if (loadError)
+    return (
+      <div class="app">
+        <p class="error">Impossible d'ouvrir le stockage local : {loadError}</p>
+      </div>
+    );
+  if (!settings) return <div class="app loading" aria-busy="true" />;
 
   return (
     <div class="app">
-      <header class="app-header">
-        <img src={`${import.meta.env.BASE_URL}icons/favicon.svg`} alt="" width={36} height={36} />
-        <h1>{APP_NAME}</h1>
-        <span class="badge">Prototype</span>
-      </header>
       <UpdateBanner />
-      {!online && <div class="banner warn" role="status">Hors-ligne : l'appli s'ouvre, mais l'extraction par IA nécessite Internet.</div>}
-
-      <main class="stack">
-        <SettingsCard settings={settings} onChange={updateSettings} />
-
-        <section class="card stack">
-          <h2 class="card-title">Extraire une recette d'une vidéo</h2>
-          <label class={`picker ${file ? 'has-file' : ''}`}>
-            <input
-              ref={inputRef}
-              type="file"
-              accept="video/*"
-              disabled={running}
-              onChange={(e) => void onPick(e.currentTarget.files?.[0] ?? null)}
-            />
-            {thumbUrl ? <img src={thumbUrl} alt="Miniature de la vidéo" /> : <span class="picker-icon" aria-hidden="true">🎬</span>}
-            <span>{file ? 'Changer de vidéo' : 'Choisir une vidéo (Photos ou Fichiers)'}</span>
-          </label>
-
-          {file && (
-            <p class="muted small">
-              {file.name} · {formatBytes(file.size)}
-              {duration !== null && ` · ${formatDuration(duration)}`}
-              {' · '}
-              {settings.forceFilesApi || file.size > INLINE_MAX_BYTES ? 'envoi via Files API' : 'envoi direct'}
-            </p>
-          )}
-          {duration !== null && duration > LONG_VIDEO_SECONDS && (
-            <p class="warn-text">Vidéo de plus de 3 minutes : l'analyse consommera beaucoup de quota gratuit.</p>
-          )}
-
-          <label class="field">
-            <span>Lien du post d'origine (facultatif)</span>
-            <input
-              type="url"
-              inputMode="url"
-              autocapitalize="off"
-              placeholder="https://www.instagram.com/reel/…"
-              value={sourceUrl}
-              disabled={running}
-              onInput={(e) => setSourceUrl(e.currentTarget.value.trim())}
-            />
-          </label>
-
-          {!ready && <p class="muted small">Configure d'abord la clé et le modèle ci-dessus.</p>}
-
-          {running ? (
-            <div class="stack">
-              <div class="progress" role="status">
-                <span class="spinner" aria-hidden="true" />
-                <span>{status.chars ? `Réception de la réponse (${status.chars} caractères)…` : PHASE_LABELS[status.phase]} <span class="muted">{formatDuration(Math.max(0, Math.round((now - startedAt) / 1000)))}</span></span>
-                <button type="button" class="btn small ghost" onClick={() => abortRef.current?.abort()}>Annuler</button>
-              </div>
-              {wentBackground ? (
-                <p class="warn-text small">L'appli est passée en arrière-plan : iOS a pu interrompre l'analyse. Si le chrono dépasse 2 min, touche Annuler puis réessaie en restant sur l'appli.</p>
-              ) : (
-                <p class="muted small">Reste sur l'appli pendant l'analyse : si tu en changes, iOS la met en pause. Compte en général moins d'une minute.</p>
-              )}
-            </div>
-          ) : (
-            <button type="button" class="btn" disabled={!file || !ready || !online} onClick={() => void run()}>
-              Extraire la recette
-            </button>
-          )}
-        </section>
-
-        {status.kind === 'error' && (
-          <section class="card error-card" role="alert">
-            <h2 class="card-title">Échec de l'extraction</h2>
-            <p>{status.error.message}</p>
-            {status.error.durationsMs && Object.keys(status.error.durationsMs).length > 0 && (
-              <p class="muted small">
-                {Object.entries(status.error.durationsMs)
-                  .map(([k, v]) => `${PHASE_LABELS[k as ExtractionPhase].replace('…', '')} : ${formatDuration(Math.round(v / 1000))}`)
-                  .join(' · ')}
-              </p>
-            )}
-            {status.error.detail && (
-              <details>
-                <summary>Détail technique</summary>
-                <pre>{status.error.detail}</pre>
-              </details>
-            )}
-            <button type="button" class="btn secondary" onClick={() => void run()}>Réessayer</button>
-          </section>
-        )}
-
-        {status.kind === 'done' && (
-          <>
-            {status.report.recipe.isRecipe ? (
-              <RecipeView recipe={status.report.recipe} thumbnailUrl={thumbUrl} sourceUrl={sourceUrl || undefined} />
-            ) : (
-              <section class="card empty">
-                <span class="empty-icon" aria-hidden="true">🤔</span>
-                <h2 class="card-title">Aucune recette détectée</h2>
-                <p class="muted">Cette vidéo ne semble pas contenir de recette. (La saisie manuelle arrivera au jalon 2.)</p>
-              </section>
-            )}
-
-            <section class="card stack">
-              <h2 class="card-title">Diagnostic</h2>
-              <dl class="diag">
-                <dt>Modèle</dt><dd>{status.report.meta.model}</dd>
-                <dt>Mode d'envoi</dt><dd>{status.report.meta.transport === 'files_api' ? 'Files API' : 'direct (base64)'}</dd>
-                {status.report.meta.bytes !== undefined && (<><dt>Taille</dt><dd>{formatBytes(status.report.meta.bytes)}</dd></>)}
-                {Object.entries(status.report.meta.durationsMs).map(([k, v]) => (
-                  <Fragment key={k}><dt>{PHASE_LABELS[k as ExtractionPhase].replace('…', '')}</dt><dd>{(v / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s</dd></Fragment>
-                ))}
-                {status.report.meta.totalTokens !== undefined && (<><dt>Jetons</dt><dd>{status.report.meta.totalTokens.toLocaleString('fr-FR')}</dd></>)}
-                <dt>Analyse rapide</dt><dd>{status.report.meta.fastMode ? 'oui' : 'non'}</dd>
-                <dt>Essais</dt><dd>{status.report.meta.attempts}</dd>
-                {status.report.recipe.detectedLanguage && (<><dt>Langue source</dt><dd>{status.report.recipe.detectedLanguage}</dd></>)}
-              </dl>
-              {status.report.warnings.length > 0 && (
-                <details>
-                  <summary>{status.report.warnings.length} correction(s) automatique(s)</summary>
-                  <ul class="small">{status.report.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
-                </details>
-              )}
-              <details>
-                <summary>JSON brut renvoyé par l'IA</summary>
-                <pre>{status.report.meta.rawJson}</pre>
-              </details>
-              <div class="row">
-                <button type="button" class="btn secondary" onClick={() => void copyResult(status.report)}>
-                  {copied ? 'Copié ✓' : 'Copier le résultat'}
-                </button>
-                <button type="button" class="btn ghost" onClick={reset}>Nouvelle vidéo</button>
-              </div>
-            </section>
-          </>
-        )}
-      </main>
-      <footer class="muted small app-footer">{APP_NAME} v{__APP_VERSION__} · jalon 1</footer>
+      {/* La page Ajouter reste montée pour ne pas perdre une extraction ou une relecture en cours. */}
+      <div hidden={tab !== 'ajouter'}>
+        <AddPage settings={settings} onSaved={() => setDataVersion((v) => v + 1)} />
+      </div>
+      {route.name === 'recettes' && <RecipesPage version={dataVersion} />}
+      {route.name === 'recette' && <RecipePage id={route.id} version={dataVersion} />}
+      {route.name === 'courses' && <ShoppingPage />}
+      {route.name === 'reglages' && <SettingsPage settings={settings} onChange={updateSettings} persisted={persisted} />}
+      <TabBar active={tab} />
     </div>
   );
 }

@@ -1,16 +1,16 @@
 import { useState } from 'preact/hooks';
 import { GeminiProvider, listGeminiModels, type GeminiModelInfo } from '../extraction/gemini';
 import { ExtractionError } from '../extraction/types';
-import type { ProtoSettings } from '../settings';
+import type { Settings } from '../model/types';
 
 interface Props {
-  settings: ProtoSettings;
-  onChange: (s: ProtoSettings) => void;
+  settings: Settings;
+  onChange: (s: Settings) => void;
 }
 
 export function SettingsCard({ settings, onChange }: Props) {
   const ready = Boolean(settings.apiKey && settings.model);
-  const [open, setOpen] = useState(!ready);
+  const [open, setOpen] = useState(true);
   const [models, setModels] = useState<GeminiModelInfo[]>([]);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [testing, setTesting] = useState(false);
@@ -24,7 +24,7 @@ export function SettingsCard({ settings, onChange }: Props) {
     setModelTest(null);
     const t0 = performance.now();
     try {
-      const provider = new GeminiProvider({ apiKey: settings.apiKey.trim(), model: settings.model, fastMode: settings.fastMode });
+      const provider = new GeminiProvider({ apiKey: (settings.apiKey ?? '').trim(), model: settings.model, fastMode: settings.fastMode });
       const report = await provider.extract({
         kind: 'text',
         text: 'Omelette pour 2 : 4 oeufs, 10 g de beurre, sel. Battre les oeufs, faire fondre le beurre, cuire 3 minutes.',
@@ -45,11 +45,11 @@ export function SettingsCard({ settings, onChange }: Props) {
     setTesting(true);
     setStatus(null);
     try {
-      const list = await listGeminiModels(settings.apiKey.trim());
+      const list = await listGeminiModels((settings.apiKey ?? '').trim());
       setModels(list);
       const keep = list.some((m) => m.id === settings.model);
       const first = list[0];
-      if (!keep && first) onChange({ ...settings, apiKey: settings.apiKey.trim(), model: first.id });
+      if (!keep && first) onChange({ ...settings, apiKey: (settings.apiKey ?? '').trim(), model: first.id });
       setStatus({ ok: true, text: `Clé valide : ${list.length} modèles disponibles. Choisis un modèle « Flash » gratuit.` });
     } catch (e) {
       setStatus({ ok: false, text: e instanceof ExtractionError ? e.message : String(e) });
@@ -74,7 +74,7 @@ export function SettingsCard({ settings, onChange }: Props) {
               autocapitalize="off"
               spellcheck={false}
               placeholder="Colle ta clé Google AI Studio"
-              value={settings.apiKey}
+              value={settings.apiKey ?? ''}
               onInput={(e) => onChange({ ...settings, apiKey: e.currentTarget.value })}
             />
           </label>
