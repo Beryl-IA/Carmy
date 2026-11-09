@@ -111,7 +111,11 @@ const sleep = (ms: number, signal?: AbortSignal) =>
 export class GeminiProvider implements ExtractionProvider {
   readonly id = 'gemini';
 
+  /** Modèle effectivement utilisé (peut changer si Google en suggère un autre). */
+  private model: string;
+
   constructor(private readonly config: GeminiConfig) {
+    this.model = config.model;
     if (!config.apiKey) throw new ExtractionError('cle', 'Aucune clé API. Ajoute-la dans les réglages.');
     if (!config.model) throw new ExtractionError('api', 'Aucun modèle choisi dans les réglages.');
   }
@@ -169,7 +173,7 @@ export class GeminiProvider implements ExtractionProvider {
           return {
             recipe,
             warnings,
-            meta: { provider: this.id, model: this.config.model, transport, bytes, durationsMs: durations, totalTokens, attempts, rawJson: text },
+            meta: { provider: this.id, model: this.model, transport, bytes, durationsMs: durations, totalTokens, attempts, rawJson: text },
           };
         } catch (e) {
           if (!(e instanceof InvalidRecipeJson)) throw e;
@@ -182,7 +186,19 @@ export class GeminiProvider implements ExtractionProvider {
     }
   }
 
+  /** Si Google refuse le modèle en suggérant un remplaçant, bascule une fois dessus. */
   private async generate(parts: Part[], signal?: AbortSignal): Promise<{ text: string; totalTokens?: number }> {
+    try {
+      return await this.generateOnce(parts, signal);
+    } catch (e) {
+      const suggested = e instanceof ExtractionError ? suggestedModel(e.detail) : null;
+      if (!suggested || suggested === this.model) throw e;
+      this.model = suggested;
+      return this.generateOnce(parts, signal);
+    }
+  }
+
+  private async generateOnce(parts: Part[], signal?: AbortSignal): Promise<{ text: string; totalTokens?: number }> {
     const body = {
       systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
       contents: [{ role: 'user', parts }],
@@ -193,7 +209,7 @@ export class GeminiProvider implements ExtractionProvider {
       },
     };
     const res = await call(
-      `${API}/v1beta/models/${encodeURIComponent(this.config.model)}:generateContent`,
+      `${API}/v1beta/models/${encodeURIComponent(this.model)}:generateContent`,
       { method: 'POST', headers: headers(this.config.apiKey, { 'Content-Type': 'application/json' }), body: JSON.stringify(body), signal },
       'analyse par l\'IA (generateContent)',
     );
@@ -265,6 +281,16 @@ export class GeminiProvider implements ExtractionProvider {
       await fetch(`${API}/v1beta/${name}`, { method: 'DELETE', headers: headers(this.config.apiKey) });
     } catch { /* le fichier expire de toute façon sous 48 h */ }
   }
+}
+
+/**
+ * Extrait le modèle de remplacement d'un refus HTTP 404 de Google,
+ * ex. « …no longer available… use models/gemini-3.8-flash for… ».
+ */
+export function suggestedModel(detail: string | undefined): string | null {
+  if (!detail || !/HTTP 404/.test(detail)) return null;
+  const m = /use\s+models\/([a-z0-9][\w.-]*[a-z0-9])/i.exec(detail);
+  return m?.[1] ?? null;
 }
 
 export interface GeminiModelInfo {

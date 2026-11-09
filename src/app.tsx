@@ -80,6 +80,8 @@ export function App() {
         { kind: 'video', file, fileName: file.name },
         { signal: controller.signal, onPhase: (phase) => setStatus({ kind: 'running', phase }) },
       );
+      // Google a imposé un autre modèle : on le mémorise pour les prochaines fois.
+      if (report.meta.model !== settings.model) updateSettings({ ...settings, model: report.meta.model });
       setStatus({ kind: 'done', report });
     } catch (e) {
       const error = e instanceof ExtractionError ? e : new ExtractionError('api', 'Erreur inattendue.', String(e));

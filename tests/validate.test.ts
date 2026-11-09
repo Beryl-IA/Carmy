@@ -96,3 +96,14 @@ describe('sortModels', () => {
     ]);
   });
 });
+
+describe('suggestedModel', () => {
+  it('lit le modèle suggéré par Google dans un refus 404', async () => {
+    const { suggestedModel } = await import('../src/extraction/gemini');
+    const detail = "analyse par l'IA (generateContent) — HTTP 404 This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest features and improvements.";
+    expect(suggestedModel(detail)).toBe('gemini-3.8-flash');
+    expect(suggestedModel('HTTP 404 Not found')).toBeNull();
+    expect(suggestedModel('HTTP 400 use models/gemini-3.8-flash')).toBeNull();
+    expect(suggestedModel(undefined)).toBeNull();
+  });
+});
