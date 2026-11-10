@@ -1,6 +1,6 @@
 // Brouillon éditable de l'écran de relecture (F3). Logique pure : conversion et validation.
 import type { ExtractedRecipe } from '../extraction/types';
-import type { Aisle, Recipe, SourceType, Unit } from './types';
+import { NUTRIENTS, type Aisle, type Nutrition, type Recipe, type SourceType, type Storage, type Unit } from './types';
 
 export interface IngredientDraft {
   key: string;
@@ -34,6 +34,22 @@ export interface RecipeDraft {
   sourceType: SourceType;
   sourceUrl: string;
   thumbnail?: Blob;
+  /** V2-J2 : conservation (jours au frigo, mois au congélateur ; « 0 » = déconseillé). */
+  fridgeDays: string;
+  freezerMonths: string;
+  /** V2-J2 : valeurs par portion. */
+  nutrition: Record<keyof Nutrition, string>;
+}
+
+export const emptyNutritionDraft = (): Record<keyof Nutrition, string> => ({ kcal: '', protein: '', carbs: '', fat: '', fiber: '' });
+
+/** Champs du brouillon issus des estimations (conservation, nutrition). */
+export function detailsToDraft(storage?: Storage, nutrition?: Nutrition): Pick<RecipeDraft, 'fridgeDays' | 'freezerMonths' | 'nutrition'> {
+  return {
+    fridgeDays: numberToInput(storage?.fridgeDays),
+    freezerMonths: numberToInput(storage?.freezerMonths),
+    nutrition: Object.fromEntries(NUTRIENTS.map((k) => [k, numberToInput(nutrition?.[k])])) as Record<keyof Nutrition, string>,
+  };
 }
 
 let keySeq = 0;
@@ -85,6 +101,7 @@ export function emptyDraft(defaultServings = 1): RecipeDraft {
     title: '', servings: String(defaultServings), prepMinutes: '', cookMinutes: '',
     tags: [], collectionIds: [], ingredients: [emptyIngredient()], steps: [emptyStep()],
     sourceType: 'manual', sourceUrl: '',
+    fridgeDays: '', freezerMonths: '', nutrition: emptyNutritionDraft(),
   };
 }
 
@@ -107,6 +124,7 @@ export function draftFromExtracted(
     sourceType: source.type,
     sourceUrl: source.url ?? '',
     thumbnail: source.thumbnail,
+    ...detailsToDraft(r.storage, r.nutrition),
   };
 }
 
@@ -114,7 +132,7 @@ export function draftFromRecipe(r: Recipe): RecipeDraft {
   return {
     ...draftFromExtracted(
       { isRecipe: true, title: r.title, servings: r.servings, prepMinutes: r.prepMinutes ?? null, cookMinutes: r.cookMinutes ?? null,
-        tags: r.tags, ingredients: r.ingredients, steps: r.steps, detectedLanguage: null },
+        tags: r.tags, ingredients: r.ingredients, steps: r.steps, detectedLanguage: null, storage: r.storage, nutrition: r.nutrition },
       { type: r.sourceType, url: r.sourceUrl, thumbnail: r.thumbnail },
     ),
     id: r.id,
@@ -122,6 +140,10 @@ export function draftFromRecipe(r: Recipe): RecipeDraft {
     collectionIds: [...r.collectionIds],
   };
 }
+
+export const NUTRIENT_LABELS: Record<keyof Nutrition, string> = {
+  kcal: 'Énergie', protein: 'Protéines', carbs: 'Glucides', fat: 'Lipides', fiber: 'Fibres',
+};
 
 export function normalizeTag(t: string): string {
   return t.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -189,6 +211,20 @@ export function draftToRecipe(d: RecipeDraft, now: number, makeId: () => string)
     steps.push({ text, timerSeconds });
   });
 
+  const wholeOrNull = (v: string, label: string): number | null => {
+    if (!v.trim()) return null;
+    const n = parseQuantity(v);
+    if (n === undefined || n === null || n < 0) {
+      errors.push(`${label} : nombre illisible.`);
+      return null;
+    }
+    return Math.round(n);
+  };
+  const storage: Storage = { fridgeDays: wholeOrNull(d.fridgeDays, 'Conservation au frigo'), freezerMonths: wholeOrNull(d.freezerMonths, 'Conservation au congélateur') };
+  const nutrition = Object.fromEntries(NUTRIENTS.map((k) => [k, wholeOrNull(d.nutrition[k], NUTRIENT_LABELS[k])])) as unknown as Nutrition;
+  const hasStorage = storage.fridgeDays !== null || storage.freezerMonths !== null;
+  const hasNutrition = NUTRIENTS.some((k) => nutrition[k] !== null);
+
   const sourceUrl = d.sourceUrl.trim();
   if (sourceUrl && !/^https?:\/\/\S+$/i.test(sourceUrl)) errors.push('Le lien d\'origine doit commencer par https://');
 
@@ -210,6 +246,8 @@ export function draftToRecipe(d: RecipeDraft, now: number, makeId: () => string)
       sourceType: d.sourceType,
       ...(sourceUrl ? { sourceUrl } : {}),
       ...(d.thumbnail ? { thumbnail: d.thumbnail } : {}),
+      ...(hasStorage ? { storage } : {}),
+      ...(hasNutrition ? { nutrition } : {}),
       createdAt: d.createdAt ?? now,
       updatedAt: now,
     },

@@ -1,4 +1,5 @@
 // Onglet Courses (F6) : recettes choisies, liste fusionnée par rayon, garde-manger, cases, ajout manuel.
+import { ingredientIcon } from '../model/icons';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { listRecipes, loadPantry, loadShopping, saveShopping } from '../db/db';
 import { AISLE_LABELS, formatQuantity, formatUnit } from '../format';
@@ -203,6 +204,7 @@ function ShopLine({ line, onToggle, sources, sourcesOpen, onSources }: {
     <li class={`shop-line ${line.checked ? 'checked' : ''}`}>
       <label class="shop-check">
         <input type="checkbox" checked={line.checked} onChange={onToggle} />
+        <span class="shop-icon" aria-hidden="true">{ingredientIcon(line.name, line.aisle)}</span>
         <span class="shop-qty">{qtyText(line)}</span>
         <span class="grow">
           {line.name}

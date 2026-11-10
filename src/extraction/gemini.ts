@@ -1,5 +1,5 @@
 // Implémentation Gemini de ExtractionProvider (F2), appelée directement depuis le navigateur.
-import { RESPONSE_SCHEMA, SYSTEM_INSTRUCTION, USER_PROMPT_TEXT, USER_PROMPT_VIDEO, userPromptImages } from './prompt';
+import { DETAILS_INSTRUCTION, DETAILS_SCHEMA, RESPONSE_SCHEMA, SYSTEM_INSTRUCTION, USER_PROMPT_TEXT, USER_PROMPT_VIDEO, userPromptImages } from './prompt';
 import {
   ExtractionError,
   type ExtractionInput,
@@ -7,8 +7,18 @@ import {
   type ExtractionPhase,
   type ExtractionProvider,
   type ExtractionReport,
+  type RecipeDetails,
+  type RecipeForDetails,
 } from './types';
-import { InvalidRecipeJson, parseExtractedRecipe } from './validate';
+import { InvalidRecipeJson, parseExtractedRecipe, parseRecipeDetails } from './validate';
+
+/** Consigne système et schéma de réponse d'une requête. */
+interface RequestSpec {
+  system: string;
+  schema: unknown;
+}
+const EXTRACT: RequestSpec = { system: SYSTEM_INSTRUCTION, schema: RESPONSE_SCHEMA };
+const DETAILS: RequestSpec = { system: DETAILS_INSTRUCTION, schema: DETAILS_SCHEMA };
 
 const API = 'https://generativelanguage.googleapis.com';
 
@@ -245,15 +255,39 @@ export class GeminiProvider implements ExtractionProvider {
     }
   }
 
+  /** V2-J2 : estime conservation et valeurs nutritionnelles d'une recette déjà saisie (texte seul). */
+  async estimateDetails(recipe: RecipeForDetails, options: { signal?: AbortSignal } = {}): Promise<RecipeDetails> {
+    this.mediaIsVideo = false;
+    this.onReceive = undefined;
+    const payload = {
+      title: recipe.title,
+      servings: recipe.servings,
+      ingredients: recipe.ingredients.map((i) => ({ name: i.name, quantity: i.quantity, unit: i.unit, ...(i.note ? { note: i.note } : {}) })),
+      steps: recipe.steps.map((s) => s.text),
+    };
+    const parts: Part[] = [{ text: `Recette :\n${JSON.stringify(payload)}` }];
+    let lastError: InvalidRecipeJson | null = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { text } = await this.generate(parts, options.signal, DETAILS);
+      try {
+        return parseRecipeDetails(text);
+      } catch (e) {
+        if (!(e instanceof InvalidRecipeJson)) throw e;
+        lastError = e;
+      }
+    }
+    throw new ExtractionError('reponse_invalide', `Réponse de l'IA inexploitable : ${lastError?.message ?? ''}`);
+  }
+
   /** Si Google refuse le modèle en suggérant un remplaçant, bascule une fois dessus. */
-  private async generate(parts: Part[], signal?: AbortSignal): Promise<{ text: string; totalTokens?: number }> {
+  private async generate(parts: Part[], signal?: AbortSignal, spec: RequestSpec = EXTRACT): Promise<{ text: string; totalTokens?: number }> {
     try {
-      return await this.generateOnce(parts, signal);
+      return await this.generateOnce(parts, signal, spec);
     } catch (e) {
       const suggested = e instanceof ExtractionError ? suggestedModel(e.detail) : null;
       if (!suggested || suggested === this.model) throw e;
       this.model = suggested;
-      return this.generateOnce(parts, signal);
+      return this.generateOnce(parts, signal, spec);
     }
   }
 
@@ -263,10 +297,10 @@ export class GeminiProvider implements ExtractionProvider {
   private mediaIsVideo = false;
   private onReceive?: (chars: number) => void;
 
-  private async generateOnce(parts: Part[], signal?: AbortSignal): Promise<{ text: string; totalTokens?: number }> {
+  private async generateOnce(parts: Part[], signal: AbortSignal | undefined, spec: RequestSpec): Promise<{ text: string; totalTokens?: number }> {
     for (;;) {
       try {
-        return await this.generateRequest(parts, signal);
+        return await this.generateRequest(parts, signal, spec);
       } catch (e) {
         const d = e instanceof ExtractionError && /HTTP 400/.test(e.detail ?? '') ? e.detail ?? '' : '';
         if (this.lowThinking && /thinking/i.test(d)) { this.lowThinking = false; continue; }
@@ -277,13 +311,13 @@ export class GeminiProvider implements ExtractionProvider {
   }
 
   /** Réponse en flux (SSE) : on voit arriver le texte, ce qui distingue « Google réfléchit » de « bloqué ». */
-  private async generateRequest(parts: Part[], signal?: AbortSignal): Promise<{ text: string; totalTokens?: number }> {
+  private async generateRequest(parts: Part[], signal: AbortSignal | undefined, spec: RequestSpec): Promise<{ text: string; totalTokens?: number }> {
     const body = {
-      systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+      systemInstruction: { parts: [{ text: spec.system }] },
       contents: [{ role: 'user', parts }],
       generationConfig: {
         responseMimeType: 'application/json',
-        responseSchema: RESPONSE_SCHEMA,
+        responseSchema: spec.schema,
         temperature: 0.2,
         ...(this.lowThinking ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
         ...(this.lowResolution && this.mediaIsVideo ? { mediaResolution: 'MEDIA_RESOLUTION_LOW' } : {}),

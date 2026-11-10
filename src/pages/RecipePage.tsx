@@ -1,19 +1,25 @@
 // Fiche détail (F4) : portions ajustables, collections, modifier, supprimer.
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { RecipeView } from '../components/RecipeView';
-import { addToShopping, deleteRecipe, getRecipe, listCollections, loadShopping, saveCollection, setRecipeInCollection } from '../db/db';
+import { addToShopping, deleteRecipe, getRecipe, listCollections, loadShopping, saveCollection, saveRecipe, setRecipeInCollection } from '../db/db';
+import { GeminiProvider } from '../extraction/gemini';
+import { ExtractionError } from '../extraction/types';
+import { applyDetails, needsDetails } from '../model/details';
 import { scaleIngredients } from '../model/scale';
-import type { Collection, Recipe } from '../model/types';
+import type { Collection, Recipe, Settings } from '../model/types';
 import { navigate } from '../router';
 
 interface Props {
   id: string;
   version: number;
-  defaultServings: number;
+  settings: Settings;
   onChanged: () => void;
 }
 
-export function RecipePage({ id, version, defaultServings, onChanged }: Props) {
+export function RecipePage({ id, version, settings, onChanged }: Props) {
+  const defaultServings = settings.defaultServings;
+  const [estimating, setEstimating] = useState(false);
+  const [estimateError, setEstimateError] = useState('');
   const [recipe, setRecipe] = useState<Recipe | null | undefined>(undefined);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [servings, setServings] = useState(defaultServings);
@@ -58,6 +64,24 @@ export function RecipePage({ id, version, defaultServings, onChanged }: Props) {
     setInList(servings);
   }
 
+  /** V2-J2 : demande à l'IA la conservation et les valeurs nutritionnelles manquantes. */
+  async function completeDetails() {
+    if (!recipe) return;
+    setEstimating(true);
+    setEstimateError('');
+    try {
+      const provider = new GeminiProvider({ apiKey: (settings.apiKey ?? '').trim(), model: settings.model });
+      const updated = applyDetails(recipe, await provider.estimateDetails(recipe), Date.now());
+      await saveRecipe(updated);
+      setRecipe(updated);
+      onChanged();
+    } catch (e) {
+      setEstimateError(e instanceof ExtractionError ? e.message : `Erreur inattendue : ${String(e)}`);
+    } finally {
+      setEstimating(false);
+    }
+  }
+
   async function remove() {
     if (!recipe || !confirm(`Supprimer « ${recipe.title} » ? Cette action est définitive.`)) return;
     await deleteRecipe(recipe.id);
@@ -77,6 +101,18 @@ export function RecipePage({ id, version, defaultServings, onChanged }: Props) {
           recipe={scaled}
           thumbnailUrl={url}
           sourceUrl={recipe.sourceUrl}
+          detailsAction={needsDetails(recipe) ? (
+            <div class="details-action stack">
+              {settings.apiKey && settings.model ? (
+                <button type="button" class="btn secondary" disabled={estimating} onClick={() => void completeDetails()}>
+                  {estimating ? 'Estimation en cours…' : `✨ Compléter avec l'IA (${[!recipe.storage && 'conservation', !recipe.nutrition && 'nutrition'].filter(Boolean).join(', ')})`}
+                </button>
+              ) : (
+                <p class="muted small">Conservation et valeurs nutritionnelles : ajoute ta clé dans <a href="#/reglages">Réglages</a> pour les faire estimer par l'IA, ou saisis-les via « Modifier ».</p>
+              )}
+              {estimateError && <p class="error small" role="alert">{estimateError}</p>}
+            </div>
+          ) : undefined}
           servingsNode={
             <>
             <div class="servings">

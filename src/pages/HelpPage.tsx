@@ -51,6 +51,15 @@ export function HelpPage() {
       </section>
 
       <section class="card stack">
+        <h2>Conservation et nutrition</h2>
+        <ul>
+          <li>Chaque fiche indique combien de temps garder le plat cuisiné au <strong>frigo</strong> et au <strong>congélateur</strong> (en boîte hermétique), et ses <strong>valeurs nutritionnelles pour 1 portion</strong>.</li>
+          <li>Ce sont des <strong>estimations de l'IA</strong> : corrige-les avec « Modifier » si besoin. En cas de doute sur un plat, fie-toi à l'odeur et à l'aspect, et ne recongèle jamais un plat décongelé.</li>
+          <li>Pour une recette enregistrée avant cette version : touche <strong>✨ Compléter avec l'IA</strong> sur sa fiche, ou complète-les toutes d'un coup dans Réglages › Conservation et nutrition.</li>
+        </ul>
+      </section>
+
+      <section class="card stack">
         <h2>En cuisine</h2>
         <ul>
           <li>Glisse vers la gauche ou la droite pour changer d'étape ; 🧺 affiche les ingrédients.</li>

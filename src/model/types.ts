@@ -28,6 +28,27 @@ export interface Step {
 }
 
 /** `image` : une ou plusieurs captures d'écran (V2-J1). */
+/**
+ * Conservation conseillée du plat cuisiné (V2-J2), en boîte hermétique.
+ * null = inconnu ; freezerMonths = 0 : congélation déconseillée.
+ */
+export interface Storage {
+  fridgeDays: number | null;
+  freezerMonths: number | null;
+}
+
+/** Valeurs nutritionnelles estimées par portion (V2-J2). */
+export interface Nutrition {
+  kcal: number | null;
+  /** Grammes. */
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  fiber: number | null;
+}
+
+export const NUTRIENTS = ['kcal', 'protein', 'carbs', 'fat', 'fiber'] as const satisfies readonly (keyof Nutrition)[];
+
 export type SourceType = 'video' | 'image' | 'text' | 'manual';
 
 export interface Recipe {
@@ -44,6 +65,9 @@ export interface Recipe {
   sourceType: SourceType;
   sourceUrl?: string;
   thumbnail?: Blob;
+  /** Ajouts V2-J2 : facultatifs (anciennes recettes : « Compléter avec l'IA »). */
+  storage?: Storage;
+  nutrition?: Nutrition;
   createdAt: number;
   updatedAt: number;
 }

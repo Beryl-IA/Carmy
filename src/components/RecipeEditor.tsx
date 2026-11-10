@@ -2,10 +2,10 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { AISLE_LABELS } from '../format';
 import {
-  emptyIngredient, emptyStep, moveItem, normalizeTag,
+  emptyIngredient, emptyStep, moveItem, normalizeTag, NUTRIENT_LABELS,
   type IngredientDraft, type RecipeDraft, type StepDraft,
 } from '../model/draft';
-import { AISLES, TAG_SUGGESTIONS, UNITS, type Unit } from '../model/types';
+import { AISLES, NUTRIENTS, TAG_SUGGESTIONS, UNITS, type Unit } from '../model/types';
 
 const UNIT_OPTIONS: Record<Exclude<Unit, null>, string> = {
   g: 'g', kg: 'kg', ml: 'ml', cl: 'cl', l: 'l', c_cafe: 'c. à café', c_soupe: 'c. à soupe', piece: 'pièce(s)',
@@ -136,6 +136,31 @@ export function RecipeEditor({ draft, onChange, onSave, onCancel, errors, saving
           </div>
         ))}
         <button type="button" class="btn secondary" onClick={() => set('steps', [...draft.steps, emptyStep()])}>+ Ajouter une étape</button>
+      </section>
+
+      <section class="card stack">
+        <h2 class="card-title">Conservation et nutrition</h2>
+        <p class="muted small">Estimations de l'IA, à corriger si besoin. Laisse vide si tu ne sais pas.</p>
+        <div class="grid2">
+          <label class="field">
+            <span>🧊 Frigo (jours)</span>
+            <input type="text" inputMode="numeric" placeholder="—" value={draft.fridgeDays} onInput={(e) => set('fridgeDays', e.currentTarget.value)} />
+          </label>
+          <label class="field">
+            <span>❄️ Congélateur (mois)</span>
+            <input type="text" inputMode="numeric" placeholder="—" value={draft.freezerMonths} onInput={(e) => set('freezerMonths', e.currentTarget.value)} />
+          </label>
+        </div>
+        <p class="muted small">Congélateur : 0 = congélation déconseillée.</p>
+        <fieldset class="nutrition-fields">
+          <legend>Pour 1 portion</legend>
+          {NUTRIENTS.map((k) => (
+            <label key={k} class="field">
+              <span>{NUTRIENT_LABELS[k]} ({k === 'kcal' ? 'kcal' : 'g'})</span>
+              <input type="text" inputMode="numeric" placeholder="—" value={draft.nutrition[k]} onInput={(e) => set('nutrition', { ...draft.nutrition, [k]: e.currentTarget.value })} />
+            </label>
+          ))}
+        </fieldset>
       </section>
 
       <div class="savebar">

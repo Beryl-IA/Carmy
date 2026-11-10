@@ -1,4 +1,5 @@
 // Sauvegarde / restauration (F8) — logique pure : format du fichier, validation, fusion, rappel.
+import { normalizeNutrition, normalizeStorage } from '../extraction/validate';
 import { APP_NAME } from '../config';
 import {
   EMPTY_SHOPPING, type Collection, type PantryItem, type Recipe, type Settings, type ShoppingState,
@@ -98,6 +99,8 @@ function checkRecipe(r: unknown, i: number): StoredRecipe {
     collectionIds: Array.isArray(r.collectionIds) ? (r.collectionIds as string[]) : [],
     servings: typeof r.servings === 'number' && r.servings > 0 ? r.servings : 1,
     sourceType: r.sourceType === 'video' || r.sourceType === 'image' || r.sourceType === 'text' ? r.sourceType : 'manual',
+    storage: normalizeStorage(r.storage),
+    nutrition: normalizeNutrition(r.nutrition),
     createdAt: typeof r.createdAt === 'number' ? r.createdAt : 0,
     updatedAt: typeof r.updatedAt === 'number' ? r.updatedAt : 0,
   };

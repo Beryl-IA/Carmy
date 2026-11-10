@@ -50,4 +50,16 @@ describe('captures d\'écran : envoi à l\'IA', () => {
     }));
     expect(data.recipes[0]?.sourceType).toBe('image');
   });
+  it('restaure conservation et nutrition, et écarte des valeurs illisibles', () => {
+    const data = parseBackup(JSON.stringify({
+      app: 'carmy', format: 1, exportedAt: '2026-11-10',
+      recipes: [
+        { id: 'a', title: 'A', servings: 1, ingredients: [], steps: [], storage: { fridgeDays: 3, freezerMonths: 2 }, nutrition: { kcal: 400, protein: 20, carbs: 50, fat: 10, fiber: 5 } },
+        { id: 'b', title: 'B', servings: 1, ingredients: [], steps: [], storage: 'oups' },
+      ],
+    }));
+    expect(data.recipes[0]?.storage).toEqual({ fridgeDays: 3, freezerMonths: 2 });
+    expect(data.recipes[0]?.nutrition?.kcal).toBe(400);
+    expect(data.recipes[1]?.storage).toBeUndefined();
+  });
 });

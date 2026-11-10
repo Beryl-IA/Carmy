@@ -1,4 +1,5 @@
 // Mode cuisine (F5) : plein écran, une étape à la fois, minuteurs, écran maintenu allumé.
+import { ingredientIcon } from '../model/icons';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { getRecipe } from '../db/db';
 import { formatDuration, formatQuantity, formatUnit } from '../format';
@@ -175,6 +176,7 @@ export function CookPage({ id, step: initialStep = 0, servings: routeServings, d
             <ul class="ingredients">
               {ingredients.map((ing, i) => (
                 <li key={i}>
+                  <span class="ing-icon" aria-hidden="true">{ingredientIcon(ing.name, ing.aisle)}</span>
                   <span class="qty">{[formatQuantity(ing.quantity), formatUnit(ing.unit, ing.quantity)].filter(Boolean).join(' ')}</span>
                   <span class="name">
                     {ing.name}

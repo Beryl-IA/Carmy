@@ -356,3 +356,20 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .capture-star { right: 6px; background: var(--terracotta-btn); color: #fff; }
 .capture-actions { display: flex; justify-content: space-between; }
 .capture-actions .icon-btn { width: 42px; height: 44px; }
+
+/* ---------- V2-J2 : icônes, conservation, nutrition ---------- */
+.ingredients li { grid-template-columns: 1.6em minmax(4.5em, max-content) 1fr; align-items: start; }
+.ing-icon { font-size: 20px; line-height: 1.2; text-align: center; }
+.details-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin: 14px 0 4px; }
+.details-box { background: var(--creme); border: 1px solid var(--bord); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.details-title { font-size: 16px; margin: 0; }
+.details-list { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.details-list > div { display: flex; justify-content: space-between; gap: 8px; }
+.details-list dt { color: var(--brun-doux); }
+.details-list dd { margin: 0; font-weight: 700; text-align: right; }
+.details-list .kcal dd { color: var(--terracotta-fonce); }
+.details-grid > .btn, .details-grid > .details-action { grid-column: 1 / -1; }
+.shop-icon { flex: none; width: 1.4em; text-align: center; font-size: 18px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.nutrition-fields { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 10px; }
+.nutrition-fields legend { font-weight: 700; margin-bottom: 6px; padding: 0; }

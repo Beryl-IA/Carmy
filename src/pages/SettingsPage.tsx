@@ -1,4 +1,5 @@
 import { BackupCard } from '../components/BackupCard';
+import { EnrichCard } from '../components/EnrichCard';
 import { PantryEditor } from '../components/PantryEditor';
 import { SettingsCard } from '../components/SettingsCard';
 import { APP_NAME } from '../config';
@@ -48,6 +49,8 @@ export function SettingsPage({ settings, onChange, persisted, onSettings, onImpo
         </div>
         <p class="muted small">Nombre de portions affiché à l'ouverture d'une fiche (les quantités sont recalculées), proposé pour la saisie à la main et pour les recettes ajoutées aux courses.</p>
       </section>
+
+      <EnrichCard settings={settings} />
 
       <PantryEditor />
 

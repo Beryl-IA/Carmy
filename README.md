@@ -6,14 +6,15 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 - Fonctionne hors-ligne, sauf l'extraction par IA.
 - Cahier des charges : [`docs/cahier-des-charges-carmy.md`](docs/cahier-des-charges-carmy.md).
 
-**État : V1 (jalons J0 à J7) livrée. V2 en cours : V2-J1 (captures d'écran) livré.**
+**État : V1 (jalons J0 à J7) livrée. V2 en cours : V2-J1 et V2-J2a livrés.**
 
 ### Feuille de route V2 (batch cooking)
 
 | Jalon | Contenu | État |
 |---|---|---|
 | V2-J1 | Recette depuis une ou plusieurs captures d'écran | ✅ 1.1.0 |
-| V2-J2 | Fiche enrichie : icône par ingrédient, conservation frigo/congélateur, valeurs nutritionnelles ; session de batch cooking (plusieurs recettes, déroulé optimisé) | à faire |
+| V2-J2a | Fiche enrichie : icône par ingrédient, conservation frigo/congélateur, valeurs nutritionnelles par portion, « Compléter avec l'IA » | ✅ 1.2.0 |
+| V2-J2b | Session de batch cooking (plusieurs recettes, déroulé optimisé) | à faire |
 | V2-J3 | Réserve : plats cuisinés (portions, dates limites) et produits achetés, avec quantités décomptées automatiquement quand on cuisine | à faire |
 | V2-J4 | Planning de la semaine (midi et soir, 1 personne) à partir des plats en réserve | à faire |
 
@@ -21,7 +22,7 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 
 | Onglet | Ce qu'on y fait |
 |---|---|
-| **Recettes** | Bibliothèque en cartes, recherche (titre, ingrédients, tags, sans accents), filtres par collection et par tags, collections (créer, renommer, supprimer). Fiche : portions ajustables avec quantités recalculées, ajout aux courses, mode cuisine, modification, suppression. |
+| **Recettes** | Bibliothèque en cartes, recherche (titre, ingrédients, tags, sans accents), filtres par collection et par tags, collections (créer, renommer, supprimer). Fiche : icône par ingrédient, **conservation** (frigo, congélateur) et **valeurs nutritionnelles** par portion estimées par l'IA, portions ajustables avec quantités recalculées, ajout aux courses, mode cuisine, modification, suppression. |
 | **Ajouter** | Vidéo (Photos ou Fichiers), **captures d'écran** (jusqu'à 10 par recette, ordre modifiable, choix de la miniature), texte collé ou saisie manuelle, lien du post d'origine. Extraction par Gemini, puis **relecture obligatoire** avant enregistrement. En cas d'échec, la vidéo ou les captures restent en **file d'attente** (5 max) et se relancent en un tap. |
 | **Mode cuisine** | Plein écran, une étape à la fois, glisser pour changer d'étape, ingrédients à portée, minuteurs multiples (pause, +1 min), alarme sonore et visuelle, écran maintenu allumé. |
 | **Courses** | Recettes choisies avec portions par recette, fusion des doublons et conversion d'unités, tri par rayon, garde-manger (« Déjà à la maison »), cases à cocher sauvegardées, ajout manuel. |
@@ -125,6 +126,7 @@ Signalés au fil des jalons et validés à l'usage :
 ### Évolutions V2 (hors périmètre V1, demandées par l'utilisatrice)
 
 - **Captures d'écran en entrée** (V2-J1, listé « hors périmètre V1 » au §12) : nouvelle source `image`. Les captures sont recompressées sur l'iPhone (JPEG, 2048 px maximum) avant envoi, envoyées en une seule requête (Files API au-delà de 14 Mo), dans l'ordre choisi. L'« analyse rapide » (basse résolution) ne s'applique pas aux captures, pour que le texte reste lisible. La miniature est recadrée au format 4:5 des cartes. Les captures ne sont pas conservées après l'enregistrement, comme les vidéos (F1.5), mais un lot en échec est gardé dans la file d'attente.
+- **Fiche enrichie** (V2-J2a, inspirée fonctionnellement de l'appli Basta, sans reprise de visuels) : champs facultatifs `storage` (`fridgeDays`, `freezerMonths`, 0 = congélation déconseillée) et `nutrition` (kcal, protéines, glucides, lipides, fibres par portion), estimés par l'IA dans la même requête que l'extraction (schéma §8 étendu) ou après coup (« Compléter avec l'IA » : requête texte, ne remplace jamais une valeur existante). Icônes d'ingrédients : emoji Unicode choisis localement par mots-clés (`model/icons.ts`), repli sur le rayon, sans IA. Pas de migration IndexedDB (champs facultatifs).
 
 ## Bilan du jalon 1 (09/11/2026)
 

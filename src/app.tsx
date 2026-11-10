@@ -64,7 +64,7 @@ export function App() {
       {route.name === 'recettes' && (
         <RecipesPage version={dataVersion} filter={filter} onFilter={setFilter} settings={settings} onSettings={setSettings} onSnooze={updateSettings} />
       )}
-      {route.name === 'recette' && <RecipePage id={route.id} version={dataVersion} defaultServings={settings.defaultServings} onChanged={bump} />}
+      {route.name === 'recette' && <RecipePage id={route.id} version={dataVersion} settings={settings} onChanged={bump} />}
       {route.name === 'modifier' && <EditPage id={route.id} onSaved={bump} />}
       {route.name === 'collections' && <CollectionsPage onChanged={bump} />}
       {route.name === 'courses' && <ShoppingPage defaultServings={settings.defaultServings} />}

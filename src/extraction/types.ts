@@ -2,7 +2,7 @@
 
 export { AISLES, UNITS } from '../model/types';
 export type { Aisle, Unit, Ingredient, Step } from '../model/types';
-import type { Ingredient, Step } from '../model/types';
+import type { Ingredient, Nutrition, Recipe, Step, Storage } from '../model/types';
 
 /** Résultat brut de l'IA, validé et normalisé (§8). */
 export interface ExtractedRecipe {
@@ -15,7 +15,19 @@ export interface ExtractedRecipe {
   ingredients: Ingredient[];
   steps: Step[];
   detectedLanguage: string | null;
+  /** V2-J2 : estimations de l'IA (absentes si non fournies). */
+  storage?: Storage;
+  nutrition?: Nutrition;
 }
+
+/** Estimations complémentaires d'une recette existante (V2-J2, « Compléter avec l'IA »). */
+export interface RecipeDetails {
+  storage?: Storage;
+  nutrition?: Nutrition;
+}
+
+/** Ce que l'IA reçoit pour compléter une recette. */
+export type RecipeForDetails = Pick<Recipe, 'title' | 'servings' | 'ingredients' | 'steps'>;
 
 export type ExtractionInput =
   | { kind: 'video'; file: Blob; fileName?: string }
@@ -54,6 +66,8 @@ export interface ExtractionOptions {
 export interface ExtractionProvider {
   readonly id: string;
   extract(input: ExtractionInput, options?: ExtractionOptions): Promise<ExtractionReport>;
+  /** Estime conservation et valeurs nutritionnelles d'une recette déjà saisie. */
+  estimateDetails(recipe: RecipeForDetails, options?: Pick<ExtractionOptions, 'signal'>): Promise<RecipeDetails>;
 }
 
 /** Erreur d'extraction avec une catégorie exploitable par la future file d'attente (F7). */

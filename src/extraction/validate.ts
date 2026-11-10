@@ -1,5 +1,6 @@
 // Validation et normalisation (pure) de la réponse JSON de l'IA (§8).
-import { AISLES, UNITS, type Aisle, type ExtractedRecipe, type Ingredient, type Step, type Unit } from './types';
+import { NUTRIENTS, type Nutrition, type Storage } from '../model/types';
+import { AISLES, UNITS, type Aisle, type ExtractedRecipe, type Ingredient, type RecipeDetails, type Step, type Unit } from './types';
 
 export class InvalidRecipeJson extends Error {
   constructor(message: string) {
@@ -88,6 +89,36 @@ function normalizeStep(v: unknown, i: number, warnings: string[]): Step | null {
   return { text, timerSeconds: timer && timer > 0 ? timer : null };
 }
 
+/** Conservation : jours (≤ 30) et mois (≤ 24) plausibles ; absente si rien d'exploitable. */
+export function normalizeStorage(v: unknown): Storage | undefined {
+  if (!isObj(v)) return undefined;
+  const clamp = (n: number | null, max: number) => (n === null ? null : Math.min(n, max));
+  const storage: Storage = { fridgeDays: clamp(toPositiveIntOrNull(v.fridgeDays), 30), freezerMonths: clamp(toPositiveIntOrNull(v.freezerMonths), 24) };
+  return storage.fridgeDays === null && storage.freezerMonths === null ? undefined : storage;
+}
+
+/** Valeurs nutritionnelles par portion ; absentes si aucune valeur n'est exploitable. */
+export function normalizeNutrition(v: unknown): Nutrition | undefined {
+  if (!isObj(v)) return undefined;
+  const n = Object.fromEntries(NUTRIENTS.map((k) => [k, toPositiveIntOrNull(v[k])])) as unknown as Nutrition;
+  return NUTRIENTS.every((k) => n[k] === null) ? undefined : n;
+}
+
+/** Réponse de « Compléter avec l'IA ». */
+export function parseRecipeDetails(raw: string): RecipeDetails {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new InvalidRecipeJson('La réponse de l\'IA n\'est pas un JSON valide.');
+  }
+  if (!isObj(data)) throw new InvalidRecipeJson('La réponse de l\'IA n\'est pas un objet JSON.');
+  const storage = normalizeStorage(data.storage);
+  const nutrition = normalizeNutrition(data.nutrition);
+  if (!storage && !nutrition) throw new InvalidRecipeJson('Aucune estimation dans la réponse.');
+  return { ...(storage ? { storage } : {}), ...(nutrition ? { nutrition } : {}) };
+}
+
 /**
  * Parse et valide la réponse. Lève InvalidRecipeJson si la structure est inexploitable
  * (déclenche une nouvelle tentative puis la file d'attente). Corrige les écarts mineurs
@@ -130,6 +161,8 @@ export function parseExtractedRecipe(raw: string): { recipe: ExtractedRecipe; wa
     ? [...new Set(data.tags.filter((t): t is string => typeof t === 'string').map((t) => t.trim().toLowerCase()).filter(Boolean))]
     : [];
 
+  const storage = normalizeStorage(data.storage);
+  const nutrition = normalizeNutrition(data.nutrition);
   return {
     recipe: {
       isRecipe: true,
@@ -141,6 +174,8 @@ export function parseExtractedRecipe(raw: string): { recipe: ExtractedRecipe; wa
       ingredients: data.ingredients.map((v, i) => normalizeIngredient(v, i, warnings)).filter((x): x is Ingredient => x !== null),
       steps: data.steps.map((v, i) => normalizeStep(v, i, warnings)).filter((x): x is Step => x !== null),
       detectedLanguage: language,
+      ...(storage ? { storage } : {}),
+      ...(nutrition ? { nutrition } : {}),
     },
     warnings,
   };
