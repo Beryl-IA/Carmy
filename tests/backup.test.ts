@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   addToQueue, deleteQueueJob, exportAll, listQueue, loadPantry, loadSettings, loadShopping, markBackupDone, resetDbForTests,
-  saveCollection, savePantry, saveRecipe, saveSettings, saveShopping, updateQueueJob, writeAll, listRecipes, listCollections,
+  saveCollection, saveDishes, savePantry, saveStock, saveRecipe, saveSettings, saveShopping, updateQueueJob, writeAll, listRecipes, listCollections,
 } from '../src/db/db';
 import {
   backupFileName, backupReminder, blobToDataUrl, dataUrlToBlob, InvalidBackup, mergeData, parseBackup, toBackupFile, type AppData,
@@ -47,6 +47,8 @@ describe('export → import à l\'identique (critère J6)', () => {
     await savePantry([{ name: 'sel' }, { name: 'riz' }]);
     await saveShopping({ ...EMPTY_SHOPPING, selections: [{ recipeId: 'a', servings: 4 }], checkedKeys: ['oignon|piece'] });
 
+    await saveStock([{ id: 's1', name: 'riz', family: 'masse', base: 700, aisle: 'epicerie_salee', updatedAt: 1 }]);
+    await saveDishes([{ id: 'd1', title: 'Chili', recipeId: 'a', portions: 3, place: 'congelateur', cookedAt: 1, expiresAt: 99 }]);
     const before = await exportAll();
     const file = await toBackupFile(before, new Date('2026-11-10T09:00:00Z'), '0.6.0');
     const json = JSON.stringify(file);
@@ -88,7 +90,7 @@ describe('parseBackup', () => {
 
 describe('fusion', () => {
   const base = (recipes: Recipe[], extra: Partial<AppData> = {}): AppData => ({
-    recipes, collections: [], pantry: [], settings: { ...DEFAULT_SETTINGS, defaultServings: 1 }, shopping: EMPTY_SHOPPING, ...extra,
+    recipes, collections: [], pantry: [], settings: { ...DEFAULT_SETTINGS, defaultServings: 1 }, shopping: EMPTY_SHOPPING, stock: [], dishes: [], ...extra,
   });
   it('garde la version la plus récente de chaque recette et ajoute le reste', () => {
     const mine = base([recipe('a', 10, { title: 'mienne' }), recipe('b', 50, { title: 'b récente' })], {
@@ -105,6 +107,13 @@ describe('fusion', () => {
     expect(m.settings.defaultServings).toBe(1);
     expect(mergeData(mine, theirs, 'remplacer').recipes).toHaveLength(3);
     expect(mergeData(mine, theirs, 'remplacer').settings.defaultServings).toBe(4);
+  });
+  it('fusionne la réserve sans doublon', () => {
+    const item = (id: string, name: string, b: number) => ({ id, name, family: 'masse' as const, base: b, aisle: 'epicerie_salee' as const, updatedAt: 0 });
+    const dish = (id: string) => ({ id, title: id, portions: 2, place: 'frigo' as const, cookedAt: 0, expiresAt: null });
+    const m = mergeData(base([], { stock: [item('1', 'riz', 500)], dishes: [dish('d1')] }), base([], { stock: [item('2', 'riz', 900), item('3', 'pâtes', 500)], dishes: [dish('d1'), dish('d2')] }), 'fusionner');
+    expect(m.stock.map((s) => `${s.name}:${s.base}`)).toEqual(['riz:500', 'pâtes:500']);
+    expect(m.dishes.map((d) => d.id)).toEqual(['d1', 'd2']);
   });
 });
 
@@ -156,7 +165,7 @@ describe('file d\'attente', () => {
   });
   it('n\'est pas incluse dans la sauvegarde', async () => {
     await addToQueue(job('j', 1));
-    expect(Object.keys(await exportAll()).sort()).toEqual(['collections', 'pantry', 'recipes', 'settings', 'shopping']);
+    expect(Object.keys(await exportAll()).sort()).toEqual(['collections', 'dishes', 'pantry', 'recipes', 'settings', 'shopping', 'stock']);
     expect((await loadPantry()).length).toBeGreaterThan(0);
     expect(await loadShopping()).toEqual(EMPTY_SHOPPING);
     expect(await listCollections()).toEqual([]);

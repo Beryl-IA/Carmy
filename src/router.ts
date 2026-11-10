@@ -1,7 +1,7 @@
 // Navigation par ancre (#/recettes, #/recette/<id>…) : fonctionne hors-ligne et sous un sous-chemin GitHub Pages.
 import { useEffect, useState } from 'preact/hooks';
 
-export type Tab = 'recettes' | 'ajouter' | 'batch' | 'courses' | 'reglages';
+export type Tab = 'recettes' | 'ajouter' | 'batch' | 'reserve' | 'courses' | 'reglages';
 export type Route =
   | { name: 'recettes' }
   | { name: 'recette'; id: string }
@@ -13,6 +13,8 @@ export type Route =
   /** V2-J2b : session de batch cooking, et son mode cuisine (étape à partir de 0). */
   | { name: 'batch' }
   | { name: 'batch-cuisine'; step?: number }
+  /** V2-J3 : réserve (plats cuisinés et produits). */
+  | { name: 'reserve' }
   | { name: 'courses' }
   | { name: 'reglages' }
   | { name: 'aide' };
@@ -41,6 +43,7 @@ export function parseHash(hash: string): Route {
       return id ? { name: page, id: decodeURIComponent(id) } : { name: 'recettes' };
     case 'collections':
     case 'aide':
+    case 'reserve':
     case 'ajouter':
     case 'courses':
     case 'reglages':

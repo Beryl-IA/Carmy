@@ -2,11 +2,12 @@
 import { roundQuantity } from './scale';
 import { normalizeText } from './search';
 import { AISLES, type Aisle, type PantryItem, type Recipe, type ShoppingState, type Unit } from './types';
+import { availableFor, type StockItem } from './stock';
 
 /** Famille d'unité : seules les unités d'une même famille se cumulent (§9.2–9.4). */
 export type UnitFamily = 'masse' | 'volume' | 'sans_quantite' | Exclude<Unit, null> | 'aucune';
 
-const TO_BASE: Partial<Record<Exclude<Unit, null>, number>> = {
+export const TO_BASE: Partial<Record<Exclude<Unit, null>, number>> = {
   g: 1, kg: 1000, // → grammes
   ml: 1, cl: 10, l: 1000, c_soupe: 15, c_cafe: 5, // → millilitres
 };
@@ -32,11 +33,15 @@ export interface ShoppingLine {
   recipeIds: string[];
   checked: boolean;
   optional: boolean;
+  /** V2-J3 : pourquoi la ligne est dans « Déjà à la maison » (garde-manger ou réserve). */
+  covered?: 'pantry' | 'stock';
+  /** V2-J3 : quantité déjà en réserve (la ligne n'affiche que ce qui manque), ou 'present'. */
+  inStock?: { quantity: number; unit: Unit } | 'present';
 }
 
 export interface ShoppingList {
   sections: { aisle: Aisle; lines: ShoppingLine[] }[];
-  /** Ingrédients du garde-manger, affichés à part (« Déjà à la maison »). */
+  /** Ingrédients du garde-manger ou entièrement en réserve, affichés à part (« Déjà à la maison »). */
   pantry: ShoppingLine[];
   remaining: number;
   total: number;
@@ -70,7 +75,7 @@ export function displayQuantity(base: number, family: UnitFamily, units: Set<Uni
   return { quantity: roundQuantity(base, unit), unit };
 }
 
-export function buildShoppingList(recipes: Recipe[], state: ShoppingState, pantry: PantryItem[]): ShoppingList {
+export function buildShoppingList(recipes: Recipe[], state: ShoppingState, pantry: PantryItem[], stock: StockItem[] = []): ShoppingList {
   const byId = new Map(recipes.map((r) => [r.id, r]));
   const acc = new Map<string, Acc>();
 
@@ -113,8 +118,31 @@ export function buildShoppingList(recipes: Recipe[], state: ShoppingState, pantr
       key, name: a.name, quantity, unit, aisle: a.aisle, origin: 'recipe',
       recipeIds: [...a.recipeIds], checked: checked.has(key), optional: a.allOptional,
     };
-    if (pantrySet.has(normalizeText(a.name)) && !overrides.has(key)) pantryLines.push(line);
-    else lines.push(line);
+    if (overrides.has(key)) {
+      lines.push(line);
+      continue;
+    }
+    if (pantrySet.has(normalizeText(a.name))) {
+      pantryLines.push({ ...line, covered: 'pantry' });
+      continue;
+    }
+    // V2-J3 : la réserve couvre tout ou partie du besoin.
+    const avail = availableFor(stock, a.name, a.family);
+    if (avail === 'present') {
+      pantryLines.push({ ...line, covered: 'stock', inStock: 'present' });
+      continue;
+    }
+    if (avail > 0 && a.family !== 'sans_quantite') {
+      const inStock = displayQuantity(avail, a.family, new Set());
+      if (avail >= a.base - 1e-6) {
+        pantryLines.push({ ...line, covered: 'stock', inStock });
+        continue;
+      }
+      const missing = displayQuantity(a.base - avail, a.family, a.units);
+      lines.push({ ...line, quantity: missing.quantity, unit: missing.unit, inStock });
+      continue;
+    }
+    lines.push(line);
   }
 
   // Articles manuels : lignes séparées, jamais fusionnées ni masquées par le garde-manger.

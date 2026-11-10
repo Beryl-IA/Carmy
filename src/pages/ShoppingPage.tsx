@@ -2,7 +2,8 @@
 import { ingredientIcon } from '../model/icons';
 import { RecipePicker } from '../components/RecipePicker';
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { listRecipes, loadPantry, loadShopping, saveShopping } from '../db/db';
+import { listRecipes, loadPantry, loadShopping, loadStock, saveShopping, saveStock } from '../db/db';
+import { addToStock, type StockItem } from '../model/stock';
 import { AISLE_LABELS, formatQuantity, formatUnit } from '../format';
 import { parseQuantity } from '../model/draft';
 import { buildShoppingList, type ShoppingLine } from '../model/shopping';
@@ -20,12 +21,16 @@ export function ShoppingPage({ defaultServings }: { defaultServings: number }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set(['pantry']));
   const [picking, setPicking] = useState(false);
   const [openSources, setOpenSources] = useState<string | null>(null);
+  const [stock, setStock] = useState<StockItem[]>([]);
+  const [storing, setStoring] = useState(false);
+  const [stored, setStored] = useState(0);
 
   useEffect(() => {
-    void Promise.all([listRecipes(), loadShopping(), loadPantry()]).then(([r, s, p]) => {
+    void Promise.all([listRecipes(), loadShopping(), loadPantry(), loadStock()]).then(([r, s, p, st]) => {
       setRecipes(r);
       setState(s);
       setPantry(p);
+      setStock(st);
     });
   }, []);
 
@@ -34,7 +39,7 @@ export function ShoppingPage({ defaultServings }: { defaultServings: number }) {
     void saveShopping(next);
   };
 
-  const list = useMemo(() => (state ? buildShoppingList(recipes, state, pantry) : null), [recipes, state, pantry]);
+  const list = useMemo(() => (state ? buildShoppingList(recipes, state, pantry, stock) : null), [recipes, state, pantry, stock]);
   const byId = useMemo(() => new Map(recipes.map((r) => [r.id, r])), [recipes]);
 
   if (!state || !list) return <main class="page" aria-busy="true" />;
@@ -73,6 +78,22 @@ export function ShoppingPage({ defaultServings }: { defaultServings: number }) {
       removedKeys: [...new Set([...state.removedKeys, ...recipeKeys])],
       checkedKeys: state.checkedKeys.filter((k) => !recipeKeys.includes(k) && !manualKeys.has(k)),
     });
+  };
+
+  /** V2-J3 : les articles cochés entrent dans la réserve (quantités modifiables), puis quittent la liste. */
+  const storeChecked = async (entries: { line: ShoppingLine; quantity: number | null; unit: Unit }[]) => {
+    const next = addToStock(stock, entries.map((e) => ({ name: e.line.name, quantity: e.quantity, unit: e.unit, aisle: e.line.aisle })), Date.now(), newId);
+    await saveStock(next);
+    setStock(next);
+    // Lignes de recettes : la réserve les couvre désormais (elles passent dans « Déjà à la maison » ou n'affichent plus que le manque).
+    const keys = new Set(entries.map((e) => e.line.key));
+    update({
+      ...state,
+      manualItems: state.manualItems.filter((m) => !keys.has(`manuel:${m.id}`)),
+      checkedKeys: state.checkedKeys.filter((k) => !keys.has(k)),
+    });
+    setStored(entries.length);
+    setStoring(false);
   };
 
   const clearAll = () => {
@@ -158,8 +179,12 @@ export function ShoppingPage({ defaultServings }: { defaultServings: number }) {
               <ul class="shop-lines">
                 {list.pantry.map((l) => (
                   <li key={l.key} class="shop-line pantry-line">
+                    <span class="shop-icon" aria-hidden="true">{ingredientIcon(l.name, l.aisle)}</span>
                     <span class="shop-qty">{qtyText(l)}</span>
-                    <span class="grow">{l.name}</span>
+                    <span class="grow">
+                      {l.name}
+                      {l.covered === 'stock' && <span class="sources">En réserve{l.inStock && l.inStock !== 'present' ? ` : ${qtyText({ ...l, ...l.inStock })}` : ''}</span>}
+                    </span>
                     <button type="button" class="btn small secondary" onClick={() => update({ ...state, pantryOverrides: [...state.pantryOverrides, l.key] })}>
                       + À acheter
                     </button>
@@ -174,12 +199,27 @@ export function ShoppingPage({ defaultServings }: { defaultServings: number }) {
 
       {!isEmpty || recipes.length > 0 ? <ManualItemForm onAdd={(item) => update({ ...state, manualItems: [...state.manualItems, item] })} /> : null}
 
+      {stored > 0 && (
+        <p class="ok small center" role="status">✓ {stored} article{stored > 1 ? 's' : ''} rangé{stored > 1 ? 's' : ''} dans la <a href="#/reserve">réserve</a>.</p>
+      )}
+      {checkedCount > 0 && (
+        <button type="button" class="btn" onClick={() => { setStored(0); setStoring(true); }}>🧺 Ranger les courses ({checkedCount})</button>
+      )}
+
       {list.total > 0 && (
         <section class="row center shop-actions">
           <button type="button" class="btn small ghost" disabled={checkedCount === 0} onClick={() => update({ ...state, checkedKeys: [] })}>Tout décocher</button>
           <button type="button" class="btn small secondary" disabled={checkedCount === 0} onClick={deleteChecked}>Supprimer les cochés ({checkedCount})</button>
           <button type="button" class="btn small ghost danger-text" onClick={clearAll}>Vider la liste</button>
         </section>
+      )}
+
+      {storing && (
+        <StoreSheet
+          lines={list.sections.flatMap((sec) => sec.lines).filter((l) => l.checked)}
+          onCancel={() => setStoring(false)}
+          onStore={(e) => void storeChecked(e)}
+        />
       )}
 
       {picking && (
@@ -193,7 +233,49 @@ export function ShoppingPage({ defaultServings }: { defaultServings: number }) {
   );
 }
 
-function qtyText(l: ShoppingLine): string {
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `s${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`);
+
+/** Feuille « Ranger les courses » : quantité réellement achetée, modifiable (ex. paquet de 1 kg pour 300 g nécessaires). */
+function StoreSheet({ lines, onCancel, onStore }: {
+  lines: ShoppingLine[]; onCancel: () => void; onStore: (e: { line: ShoppingLine; quantity: number | null; unit: Unit }[]) => void;
+}) {
+  const [rows, setRows] = useState(() => lines.map((l) => ({ line: l, qty: l.quantity === null ? '' : String(l.quantity).replace('.', ','), unit: l.unit })));
+  const parsed = rows.map((r) => ({ ...r, value: parseQuantity(r.qty) }));
+  const invalid = parsed.some((r) => r.value === undefined);
+  return (
+    <div class="sheet-backdrop" onClick={onCancel}>
+      <section class="sheet" role="dialog" aria-modal="true" aria-label="Ranger les courses" onClick={(e) => e.stopPropagation()}>
+        <div class="row between nowrap">
+          <h2 class="card-title">Ranger les courses</h2>
+          <button type="button" class="cook-icon" aria-label="Fermer" onClick={onCancel}>✕</button>
+        </div>
+        <p class="muted small">Corrige les quantités achetées si besoin (ex. un paquet de 1 kg). Laisse vide pour un produit dont tu ne veux pas suivre la quantité.</p>
+        <ul class="list flush store-rows">
+          {rows.map((r, i) => (
+            <li key={r.line.key}>
+              <span class="shop-icon" aria-hidden="true">{ingredientIcon(r.line.name, r.line.aisle)}</span>
+              <span class="grow ellipsis">{r.line.name}</span>
+              <input class="qty-input" type="text" inputMode="decimal" aria-label={`Quantité achetée de ${r.line.name}`} placeholder="—" value={r.qty}
+                onInput={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, qty: e.currentTarget.value } : x)))} />
+              <select class="unit-select" aria-label={`Unité pour ${r.line.name}`} value={r.unit ?? ''}
+                onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, unit: (e.currentTarget.value || null) as Unit } : x)))}>
+                <option value="">—</option>
+                {UNITS.map((u) => <option key={u} value={u}>{UNIT_OPTIONS[u]}</option>)}
+              </select>
+            </li>
+          ))}
+        </ul>
+        {invalid && <p class="error small" role="alert">Une quantité est illisible (exemples : 2, 1,5, 1/2).</p>}
+        <button type="button" class="btn" disabled={invalid}
+          onClick={() => onStore(parsed.map((r) => ({ line: r.line, quantity: r.value ?? null, unit: r.value == null ? null : r.unit })))}>
+          Ranger {rows.length} article{rows.length > 1 ? 's' : ''} dans la réserve
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function qtyText(l: Pick<ShoppingLine, 'quantity' | 'unit'>): string {
   return [formatQuantity(l.quantity), formatUnit(l.unit, l.quantity)].filter(Boolean).join(' ');
 }
 
@@ -209,6 +291,7 @@ function ShopLine({ line, onToggle, sources, sourcesOpen, onSources }: {
         <span class="grow">
           {line.name}
           {line.optional && <span class="muted small"> (facultatif)</span>}
+          {line.inStock && line.inStock !== 'present' && <span class="sources">Il manque juste ça : {qtyText(line.inStock)} déjà en réserve</span>}
           {sourcesOpen && sources.length > 0 && <span class="sources">Pour : {sources.join(', ')}</span>}
         </span>
       </label>

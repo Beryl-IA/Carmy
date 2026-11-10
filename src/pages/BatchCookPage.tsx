@@ -1,6 +1,7 @@
 // Mode cuisine d'une session de batch cooking (V2-J2b) : déroulé commun, pastilles de recette, ingrédients par recette.
 import { useEffect, useState } from 'preact/hooks';
 import { CookView } from '../components/CookView';
+import { CookedSheet } from '../components/CookedSheet';
 import { listRecipes, loadBatch, saveBatch } from '../db/db';
 import { resolveSelections, type BatchRecipe, type BatchSession } from '../model/batch';
 import { navigate, replaceRoute } from '../router';
@@ -9,6 +10,7 @@ import { RecipeBadge } from './BatchPage';
 
 export function BatchCookPage({ step, navToken }: { step?: number; navToken?: unknown }) {
   const [data, setData] = useState<{ session: BatchSession | null; items: BatchRecipe[] } | undefined>(undefined);
+  const [finishing, setFinishing] = useState(false);
 
   useEffect(() => {
     void Promise.all([loadBatch(), listRecipes()]).then(([session, recipes]) =>
@@ -25,7 +27,10 @@ export function BatchCookPage({ step, navToken }: { step?: number; navToken?: un
     );
   const plan = session.plan;
 
+  const finish = () => void saveBatch({ ...session, finishedAt: Date.now() }).then(() => navigate({ name: 'batch' }));
+
   return (
+    <>
     <CookView
       title="Session batch cooking"
       steps={plan.steps.map((s) => ({
@@ -46,11 +51,10 @@ export function BatchCookPage({ step, navToken }: { step?: number; navToken?: un
         }
       }}
       onExit={() => navigate({ name: 'batch' })}
-      onFinish={() => {
-        if (!confirm('Session terminée ? Tu verras ensuite jusqu\'à quand garder chaque plat.')) return;
-        void saveBatch({ ...session, finishedAt: Date.now() }).then(() => navigate({ name: 'batch' }));
-      }}
+      onFinish={() => setFinishing(true)}
       finishLabel="Terminer ✓"
     />
+    {finishing && <CookedSheet mode="batch" items={items} onDone={finish} onCancel={() => setFinishing(false)} />}
+    </>
   );
 }

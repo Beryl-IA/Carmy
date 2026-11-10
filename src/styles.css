@@ -140,7 +140,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(6, 1fr);
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); padding: 4px env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: rgb(255 247 236 / 94%); border-top: 1px solid var(--bord);
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
@@ -303,7 +303,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .shop-check input:checked { background: var(--basilic); border-color: var(--basilic); }
 .shop-check input:checked::after { content: '✓'; color: #fff; font-weight: 800; font-size: 17px; }
 .shop-qty { flex: none; min-width: 4.2em; font-weight: 700; font-variant-numeric: tabular-nums; }
-.shop-line.checked .shop-qty, .shop-line.checked .shop-check .grow { color: var(--brun-doux); text-decoration: line-through; opacity: 0.7; }
+.shop-line.checked .shop-qty, .shop-line.checked .shop-check .grow { color: var(--brun-doux); text-decoration: line-through; }
 .sources { display: block; font-size: 13px; color: var(--basilic); font-weight: 600; text-decoration: none; }
 .src-btn { flex: none; font: inherit; font-size: 14px; font-weight: 700; min-width: 40px; height: 40px; border-radius: 12px; border: 0; background: transparent; color: var(--brun-doux); display: grid; place-items: center; }
 .pantry-line { padding: 4px 0; }
@@ -385,3 +385,16 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .cook-badges .recipe-badge { font-size: 16px; padding: 4px 12px; }
 .sheet-group { font-size: 16px; margin: 14px 0 2px; color: var(--terracotta-fonce); }
 .batch-recap { padding: 0; list-style: none; }
+
+/* ---------- V2-J3 : réserve ---------- */
+.store-rows li { gap: 8px; }
+.store-rows .unit-select { width: 6.5em; flex: none; }
+.dish-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 8px 0; }
+.dish-info > a, .dish-info > span:first-child { font-weight: 600; }
+.dish-actions { display: flex; gap: 6px; flex: none; }
+.dish-date.st-urgent { color: var(--terracotta-fonce); font-weight: 700; }
+.dish-date.st-perime { color: var(--erreur); font-weight: 700; }
+.dish-date.st-ok, .dish-date.st-inconnu { color: var(--brun-doux); }
+.stock-row .stock-qty { font-weight: 700; white-space: nowrap; }
+.cooked-rows li { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px 0; }
+.deduct-rows li { gap: 10px; }

@@ -107,7 +107,7 @@ export function BatchPage({ settings }: { settings: Settings }) {
           ))}
         </ul>
         <p class="hint small">
-          Congèle dès aujourd'hui les portions que tu ne mangeras pas avant la date limite du frigo. Tu pourras bientôt les suivre dans la réserve.
+          Congèle dès aujourd'hui les portions que tu ne mangeras pas avant la date limite du frigo. Suis tes plats et mange-les dans l'ordre depuis la <a href="#/reserve">réserve</a>.
         </p>
         <button type="button" class="btn" onClick={() => { void saveBatch(null); setSession(emptySession()); setInShopping(false); }}>Nouvelle session</button>
       </main>

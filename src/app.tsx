@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'preact/hooks';
 import { TabBar } from './components/TabBar';
-import { loadSettings, requestPersistence, saveSettings } from './db/db';
+import { loadDishes, loadSettings, requestPersistence, saveSettings } from './db/db';
 import type { Settings } from './model/types';
 import { EMPTY_FILTER, type RecipeFilter } from './model/search';
 import { AddPage } from './pages/AddPage';
+import { ReservePage } from './pages/ReservePage';
+import { urgentCount } from './model/stock';
 import { BatchCookPage } from './pages/BatchCookPage';
 import { BatchPage } from './pages/BatchPage';
 import { CollectionsPage } from './pages/CollectionsPage';
@@ -28,6 +30,9 @@ export function App() {
   const [dataVersion, setDataVersion] = useState(0);
   const bump = () => setDataVersion((v) => v + 1);
   const [queueCount, setQueueCount] = useState(0);
+  /** V2-J3 : plats à manger vite (pastille de l'onglet Réserve), recalculé à chaque navigation. */
+  const [urgent, setUrgent] = useState(0);
+  const refreshUrgent = () => void loadDishes().then((d) => setUrgent(urgentCount(d, Date.now())), () => {});
   /** Après un import : toutes les données ont pu changer. */
   const reloadAll = () => {
     void loadSettings().then(setSettings);
@@ -40,6 +45,8 @@ export function App() {
     loadSettings().then(setSettings, (e) => setLoadError(String(e)));
     void requestPersistence().then(setPersisted);
   }, []);
+
+  useEffect(refreshUrgent, [route.name]);
 
   function updateSettings(s: Settings) {
     setSettings(s);
@@ -76,9 +83,10 @@ export function App() {
         <CookPage key={route.id} id={route.id} step={route.step} servings={route.servings} defaultServings={settings.defaultServings} navToken={route} />
       )}
       {route.name === 'batch' && <BatchPage settings={settings} />}
+      {route.name === 'reserve' && <ReservePage onChanged={refreshUrgent} />}
       {route.name === 'batch-cuisine' && <BatchCookPage step={route.step} navToken={route} />}
       {!cooking && <TimerDock />}
-      {!cooking && <TabBar active={tab} badges={{ ajouter: queueCount }} />}
+      {!cooking && <TabBar active={tab} badges={{ ajouter: queueCount, reserve: urgent }} />}
     </div>
     </TimersProvider>
   );

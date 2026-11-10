@@ -4,6 +4,7 @@ import { APP_NAME } from '../config';
 import {
   EMPTY_SHOPPING, type Collection, type PantryItem, type Recipe, type Settings, type ShoppingState,
 } from './types';
+import { stockKey, type StockItem, type StoredDish } from './stock';
 
 export const BACKUP_FORMAT = 1;
 const DAY = 24 * 3600 * 1000;
@@ -16,6 +17,9 @@ export interface AppData {
   /** Réglages sans la clé API. */
   settings: Omit<Settings, 'apiKey'>;
   shopping: ShoppingState;
+  /** V2-J3 : réserve (produits et plats cuisinés). */
+  stock: StockItem[];
+  dishes: StoredDish[];
 }
 
 type StoredRecipe = Omit<Recipe, 'thumbnail'> & { thumbnail?: string };
@@ -32,6 +36,8 @@ export interface BackupFile {
   pantry: PantryItem[];
   settings: Omit<Settings, 'apiKey'>;
   shopping: ShoppingState;
+  stock?: StockItem[];
+  dishes?: StoredDish[];
 }
 
 // ---------- Blob <-> data URL (fonctionne aussi hors navigateur) ----------
@@ -81,6 +87,8 @@ export async function toBackupFile(data: AppData, now: Date, appVersion: string)
     pantry: data.pantry,
     settings,
     shopping: data.shopping,
+    stock: data.stock,
+    dishes: data.dishes,
   };
 }
 
@@ -131,7 +139,15 @@ export function parseBackup(text: string): AppData & { exportedAt: string } {
   const settings = (isObj(raw.settings) ? raw.settings : {}) as Omit<Settings, 'apiKey'>;
   delete (settings as Partial<Settings>).apiKey;
   const shopping = { ...EMPTY_SHOPPING, ...(isObj(raw.shopping) ? (raw.shopping as Partial<ShoppingState>) : {}) };
-  return { recipes, collections, pantry, settings, shopping, exportedAt: typeof raw.exportedAt === 'string' ? raw.exportedAt : '' };
+  const stock = Array.isArray(raw.stock)
+    ? raw.stock.filter((s): s is StockItem => isObj(s) && typeof s.id === 'string' && typeof s.name === 'string' && typeof s.family === 'string'
+      && (s.base === null || typeof s.base === 'number'))
+    : [];
+  const dishes = Array.isArray(raw.dishes)
+    ? raw.dishes.filter((d): d is StoredDish => isObj(d) && typeof d.id === 'string' && typeof d.title === 'string'
+      && typeof d.portions === 'number' && d.portions > 0 && (d.place === 'frigo' || d.place === 'congelateur'))
+    : [];
+  return { recipes, collections, pantry, settings, shopping, stock, dishes, exportedAt: typeof raw.exportedAt === 'string' ? raw.exportedAt : '' };
 }
 
 export type ImportMode = 'remplacer' | 'fusionner';
@@ -153,7 +169,12 @@ export function mergeData(current: AppData, incoming: AppData, mode: ImportMode)
   for (const c of incoming.collections) if (!collections.has(c.id)) collections.set(c.id, c);
   const pantryNames = new Set(current.pantry.map((p) => p.name));
   const pantry = [...current.pantry, ...incoming.pantry.filter((p) => !pantryNames.has(p.name))];
-  return { ...current, recipes: [...recipes.values()], collections: [...collections.values()], pantry };
+  // Réserve : on ajoute les produits et plats absents (même produit = même nom et même famille d'unité).
+  const stockKeys = new Set(current.stock.map(stockKey));
+  const stock = [...current.stock, ...incoming.stock.filter((s) => !stockKeys.has(stockKey(s)))];
+  const dishIds = new Set(current.dishes.map((d) => d.id));
+  const dishes = [...current.dishes, ...incoming.dishes.filter((d) => !dishIds.has(d.id))];
+  return { ...current, recipes: [...recipes.values()], collections: [...collections.values()], pantry, stock, dishes };
 }
 
 // ---------- Rappel (F8) ----------

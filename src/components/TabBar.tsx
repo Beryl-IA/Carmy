@@ -7,13 +7,14 @@ const ICONS: Record<Tab, JSX.Element> = {
   ),
   ajouter: <path d="M12 5v14M5 12h14" />,
   batch: <path d="M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-6Zm-2 0h2m16 0h2M9 6.5c0-1 1-1.5 1-2.5m4 2.5c0-1 1-1.5 1-2.5" />,
+  reserve: <path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8Zm-1-4h18v4H3V4Zm7 8h4" />,
   courses: <path d="M4 5h2l2 10h9l2-7H7.2M10 19.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Zm7 0a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z" />,
   reglages: (
     <path d="M4 7h10m4 0h2M4 17h4m4 0h8M14 5v4m-6 6v4" />
   ),
 };
 
-const LABELS: Record<Tab, string> = { recettes: 'Recettes', ajouter: 'Ajouter', batch: 'Batch', courses: 'Courses', reglages: 'Réglages' };
+const LABELS: Record<Tab, string> = { recettes: 'Recettes', ajouter: 'Ajouter', batch: 'Batch', reserve: 'Réserve', courses: 'Courses', reglages: 'Réglages' };
 
 export function TabBar({ active, badges = {} }: { active: Tab; badges?: Partial<Record<Tab, number>> }) {
   return (
@@ -24,7 +25,7 @@ export function TabBar({ active, badges = {} }: { active: Tab; badges?: Partial<
             {ICONS[t]}
           </svg>
           <span>{LABELS[t]}</span>
-          {badges[t] ? <span class="tab-badge" aria-label={`${badges[t]} en attente`}>{badges[t]}</span> : null}
+          {badges[t] ? <span class="tab-badge" aria-label={t === 'reserve' ? `${badges[t]} plat${badges[t]! > 1 ? 's' : ''} à manger vite` : `${badges[t]} en attente`}>{badges[t]}</span> : null}
         </a>
       ))}
     </nav>

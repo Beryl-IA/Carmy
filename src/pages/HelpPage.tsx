@@ -62,6 +62,17 @@ export function HelpPage() {
       </section>
 
       <section class="card stack">
+        <h2>Réserve</h2>
+        <ul>
+          <li><strong>Produits</strong> : en magasin, coche tes articles dans Courses, puis touche <strong>🧺 Ranger les courses</strong>. Corrige la quantité achetée si besoin (un paquet de 1 kg pour 300 g nécessaires) : tout part dans la réserve.</li>
+          <li>Les courses tiennent compte de la réserve : ce que tu as déjà passe dans « Déjà à la maison », et seule la quantité manquante reste à acheter.</li>
+          <li>Quand tu termines une recette ou une session, Carmy propose de <strong>déduire les ingrédients utilisés</strong> (300 g de riz : 1 kg → 700 g) et de <strong>ranger les portions</strong> au frigo ou au congélateur.</li>
+          <li><strong>Plats</strong> : touche <strong>−1</strong> quand tu manges une portion, ❄️ pour congeler, 🧊 pour décongeler (à manger sous 24 h). La pastille de l'onglet Réserve compte les plats à manger aujourd'hui ou demain.</li>
+          <li>Touche une quantité pour la corriger, ✕ quand un produit est terminé. Les basiques du garde-manger (sel, huile…) ne sont jamais décomptés.</li>
+        </ul>
+      </section>
+
+      <section class="card stack">
         <h2>Conservation et nutrition</h2>
         <ul>
           <li>Chaque fiche indique combien de temps garder le plat cuisiné au <strong>frigo</strong> et au <strong>congélateur</strong> (en boîte hermétique), et ses <strong>valeurs nutritionnelles pour 1 portion</strong>.</li>
