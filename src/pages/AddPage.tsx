@@ -29,7 +29,7 @@ interface Capture {
 }
 type Stage =
   | { kind: 'input' }
-  | { kind: 'running'; phase: ExtractionPhase; chars?: number }
+  | { kind: 'running'; phase: ExtractionPhase; chars?: number; retry?: { attempt: number; total: number } }
   /** queued : la vidéo a été gardée dans la file d'attente (ou la file est pleine). */
   | { kind: 'error'; error: ExtractionError; queued?: 'oui' | 'pleine' }
   | { kind: 'norecipe' }
@@ -209,6 +209,7 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
         signal: controller.signal,
         onPhase: (phase) => setStage({ kind: 'running', phase }),
         onReceive: (chars) => setStage({ kind: 'running', phase: 'analyse', chars }),
+        onRetry: (attempt, total) => setStage({ kind: 'running', phase: 'analyse', retry: { attempt, total } }),
       });
       if (!report.recipe.isRecipe) {
         setStage({ kind: 'norecipe' });
@@ -426,7 +427,9 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
             <div class="progress" role="status">
               <span class="spinner" aria-hidden="true" />
               <span>
-                {stage.chars ? `Réception de la réponse (${stage.chars} caractères)…` : PHASE_LABELS[stage.phase]} <span class="muted">{elapsed}</span>
+                {stage.retry
+                  ? `Google est très sollicité : nouvelle tentative (${stage.retry.attempt}/${stage.retry.total})…`
+                  : stage.chars ? `Réception de la réponse (${stage.chars} caractères)…` : PHASE_LABELS[stage.phase]} <span class="muted">{elapsed}</span>
               </span>
               <button type="button" class="btn small ghost" onClick={() => abortRef.current?.abort()}>Annuler</button>
             </div>

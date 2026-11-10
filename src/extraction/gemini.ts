@@ -76,6 +76,9 @@ function headers(apiKey: string, extra: Record<string, string> = {}): Record<str
 }
 
 /** Durées maximales par étape : sans elles, une requête coupée par iOS peut attendre indéfiniment. */
+/** Attentes avant chaque nouvelle tentative quand Google est surchargé (503). */
+export const RETRY_DELAYS_MS = [3_000, 8_000, 15_000] as const;
+
 export const TIMEOUTS_MS = { court: 30_000, envoi: 5 * 60_000, analyse: 8 * 60_000 } as const;
 
 function withTimeout(signal: AbortSignal | null | undefined, ms: number): AbortSignal {
@@ -116,6 +119,9 @@ async function httpError(res: Response, step: string): Promise<ExtractionError> 
   if (res.status === 429) return new ExtractionError('quota', 'Quota gratuit atteint. Réessaie plus tard (le quota journalier se réinitialise chaque jour).', info);
   if (res.status === 401 || res.status === 403 || (res.status === 400 && /api key/i.test(apiMessage)))
     return new ExtractionError('cle', 'Clé API refusée. Vérifie-la dans les réglages.', info);
+  // 500, 502, 503, 504 : « This model is currently experiencing high demand » et autres pannes passagères de Google.
+  if (res.status === 503 || res.status === 500 || res.status === 502 || res.status === 504)
+    return new ExtractionError('surcharge', 'Les serveurs de Google sont très sollicités en ce moment. Ce n\'est pas un problème de ton côté : réessaie dans quelques minutes (ou essaie un autre modèle dans Réglages).', info);
   if (res.status === 413) return new ExtractionError('trop_gros', 'Vidéo trop lourde pour l\'API.', info);
   if (res.status === 404) return new ExtractionError('api', `Modèle ou ressource introuvable (${apiMessage || 'HTTP 404'}). Vérifie le modèle choisi.`, info);
   return new ExtractionError('api', `Erreur de l'API (${res.status}) : ${apiMessage || 'réponse inattendue'}`, info);
@@ -159,6 +165,7 @@ export class GeminiProvider implements ExtractionProvider {
   async extract(input: ExtractionInput, options: ExtractionOptions = {}): Promise<ExtractionReport> {
     const { onPhase, signal } = options;
     this.onReceive = options.onReceive;
+    this.onRetry = options.onRetry;
     const durations: Partial<Record<ExtractionPhase, number>> = {};
     let phaseStart = performance.now();
     let current: ExtractionPhase | null = null;
@@ -261,6 +268,7 @@ export class GeminiProvider implements ExtractionProvider {
   async estimateDetails(recipe: RecipeForDetails, options: { signal?: AbortSignal } = {}): Promise<RecipeDetails> {
     this.mediaIsVideo = false;
     this.onReceive = undefined;
+    this.onRetry = undefined;
     const payload = {
       title: recipe.title,
       servings: recipe.servings,
@@ -288,6 +296,7 @@ export class GeminiProvider implements ExtractionProvider {
   ): Promise<BatchPlan> {
     this.mediaIsVideo = false;
     this.onReceive = options.onReceive;
+    this.onRetry = undefined;
     const parts: Part[] = [{ text: `Recettes de la session :\n${JSON.stringify(batchPayload(items))}` }];
     let lastError: InvalidBatchPlan | null = null;
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -305,12 +314,26 @@ export class GeminiProvider implements ExtractionProvider {
   /** Si Google refuse le modèle en suggérant un remplaçant, bascule une fois dessus. */
   private async generate(parts: Part[], signal?: AbortSignal, spec: RequestSpec = EXTRACT): Promise<{ text: string; totalTokens?: number }> {
     try {
-      return await this.generateOnce(parts, signal, spec);
+      return await this.generateWithRetry(parts, signal, spec);
     } catch (e) {
       const suggested = e instanceof ExtractionError ? suggestedModel(e.detail) : null;
       if (!suggested || suggested === this.model) throw e;
       this.model = suggested;
-      return this.generateOnce(parts, signal, spec);
+      return this.generateWithRetry(parts, signal, spec);
+    }
+  }
+
+  /** Surcharge passagère de Google : jusqu'à 3 nouvelles tentatives automatiques, avec attente croissante. */
+  private async generateWithRetry(parts: Part[], signal: AbortSignal | undefined, spec: RequestSpec): Promise<{ text: string; totalTokens?: number }> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.generateOnce(parts, signal, spec);
+      } catch (e) {
+        const delay = RETRY_DELAYS_MS[attempt];
+        if (!(e instanceof ExtractionError) || e.kind !== 'surcharge' || delay === undefined) throw e;
+        this.onRetry?.(attempt + 2, RETRY_DELAYS_MS.length + 1, delay);
+        await sleep(delay, signal);
+      }
     }
   }
 
@@ -319,6 +342,7 @@ export class GeminiProvider implements ExtractionProvider {
   private lowResolution: boolean;
   private mediaIsVideo = false;
   private onReceive?: (chars: number) => void;
+  private onRetry?: ExtractionOptions['onRetry'];
 
   private async generateOnce(parts: Part[], signal: AbortSignal | undefined, spec: RequestSpec): Promise<{ text: string; totalTokens?: number }> {
     for (;;) {

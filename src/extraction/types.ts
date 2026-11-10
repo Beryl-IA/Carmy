@@ -59,6 +59,8 @@ export interface ExtractionOptions {
   onPhase?: (phase: ExtractionPhase) => void;
   /** Nombre de caractères de réponse reçus (réponse en flux). */
   onReceive?: (chars: number) => void;
+  /** Google est surchargé : nouvelle tentative automatique dans `delayMs` (tentative `attempt` sur `total`). */
+  onRetry?: (attempt: number, total: number, delayMs: number) => void;
   signal?: AbortSignal;
 }
 
@@ -71,7 +73,7 @@ export interface ExtractionProvider {
 }
 
 /** Erreur d'extraction avec une catégorie exploitable par la future file d'attente (F7). */
-export type ExtractionErrorKind = 'cle' | 'quota' | 'reseau' | 'trop_gros' | 'reponse_invalide' | 'api' | 'annule';
+export type ExtractionErrorKind = 'cle' | 'quota' | 'surcharge' | 'reseau' | 'trop_gros' | 'reponse_invalide' | 'api' | 'annule';
 
 export class ExtractionError extends Error {
   /** Durées des étapes atteintes avant l'échec (diagnostic). */
