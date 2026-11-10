@@ -1,24 +1,32 @@
-// Onglet Ajouter (F1) : vidéo, texte collé ou saisie manuelle → relecture (F3) → enregistrement.
+// Onglet Ajouter (F1) : vidéo, captures d'écran (V2-J1), texte collé ou saisie manuelle → relecture (F3) → enregistrement.
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { RecipeEditor } from '../components/RecipeEditor';
 import { addToQueue, deleteQueueJob, listQueue, listRecipes, saveRecipe, updateQueueJob } from '../db/db';
 import { GeminiProvider, INLINE_MAX_BYTES } from '../extraction/gemini';
 import { ExtractionError, type ExtractionPhase, type ExtractionReport } from '../extraction/types';
 import { formatBytes, formatDuration } from '../format';
+import { MAX_CAPTURES, captureThumbnail, prepareCapture } from '../media/image';
 import { extractThumbnail, videoDuration } from '../media/thumbnail';
 import { draftFromExtracted, draftToRecipe, emptyDraft, type RecipeDraft } from '../model/draft';
-import { QUEUE_MAX, type QueueJob, type Settings, type SourceType } from '../model/types';
+import { QUEUE_MAX, queueJobBytes, type QueueJob, type Settings, type SourceType } from '../model/types';
 import { navigate } from '../router';
 
 const PHASE_LABELS: Record<ExtractionPhase, string> = {
   envoi: 'Envoi…',
-  traitement: 'Traitement de la vidéo par Google…',
+  traitement: 'Traitement par Google…',
   analyse: 'Analyse…',
   mise_en_forme: 'Mise en forme…',
 };
 const LONG_VIDEO_SECONDS = 180;
 
-type Mode = 'video' | 'text' | 'manual';
+type Mode = 'video' | 'image' | 'text' | 'manual';
+
+/** Capture d'écran préparée (recompressée) et son aperçu. */
+interface Capture {
+  key: string;
+  blob: Blob;
+  url: string;
+}
 type Stage =
   | { kind: 'input' }
   | { kind: 'running'; phase: ExtractionPhase; chars?: number }
@@ -43,6 +51,10 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
   const [thumb, setThumb] = useState<Blob | null>(null);
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
+  const [captures, setCaptures] = useState<Capture[]>([]);
+  /** Capture utilisée comme miniature de la fiche. */
+  const [thumbKey, setThumbKey] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(0);
   const [text, setText] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
@@ -57,6 +69,8 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
   const [jobId, setJobId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const capturesRef = useRef<Capture[]>([]);
+  capturesRef.current = captures;
 
   const running = stage.kind === 'running';
   const aiReady = Boolean(settings.apiKey && settings.model);
@@ -84,6 +98,40 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
   }, [running]);
 
   useEffect(() => () => { if (thumbUrl) URL.revokeObjectURL(thumbUrl); }, [thumbUrl]);
+  // Libère les aperçus des captures quand on quitte la page.
+  useEffect(() => () => capturesRef.current.forEach((c) => URL.revokeObjectURL(c.url)), []);
+
+  function setCaptureList(next: Capture[]) {
+    for (const c of captures) if (!next.includes(c)) URL.revokeObjectURL(c.url);
+    setCaptures(next);
+    if (!next.some((c) => c.key === thumbKey)) setThumbKey(next[0]?.key ?? null);
+  }
+
+  /** Ajoute des captures à la suite des précédentes, recompressées une par une (mémoire iOS). */
+  async function onPickImages(list: FileList | null) {
+    const files = [...(list ?? [])].slice(0, Math.max(0, MAX_CAPTURES - captures.length));
+    if (!files.length) return;
+    setJobId(null);
+    setStage({ kind: 'input' });
+    setPreparing(files.length);
+    const added: Capture[] = [];
+    for (const f of files) {
+      const blob = await prepareCapture(f);
+      added.push({ key: newId(), blob, url: URL.createObjectURL(blob) });
+      setPreparing((n) => n - 1);
+    }
+    setPreparing(0);
+    setCaptures((prev) => [...prev, ...added]);
+    setThumbKey((k) => k ?? added[0]?.key ?? null);
+  }
+
+  function moveCapture(index: number, delta: -1 | 1) {
+    const next = [...captures];
+    const [c] = next.splice(index, 1);
+    if (!c) return;
+    next.splice(index + delta, 0, c);
+    setCaptures(next);
+  }
 
   async function refreshQueue() {
     const q = await listQueue();
@@ -114,9 +162,10 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
 
   /** Prépare la page pour relancer une vidéo de la file, puis lance l'extraction. */
   function retryJob(job: QueueJob) {
-    setMode('video');
+    setMode(job.kind === 'video' ? 'video' : 'image');
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    setCaptureList(job.kind === 'images' ? job.images.map((blob) => ({ key: newId(), blob, url: URL.createObjectURL(blob) })) : []);
     setJobId(job.id);
     setThumb(job.thumbnail ?? null);
     setThumbUrl(job.thumbnail ? URL.createObjectURL(job.thumbnail) : null);
@@ -135,18 +184,23 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
   async function extract(fromJob?: QueueJob) {
     const job = fromJob ?? (jobId ? queue.find((j) => j.id === jobId) : undefined);
     const input = job
-      ? { kind: 'video' as const, file: job.blob, fileName: job.fileName }
+      ? job.kind === 'video' ? { kind: 'video' as const, file: job.blob, fileName: job.fileName } : { kind: 'images' as const, files: job.images }
       : mode === 'video' ? (file ? { kind: 'video' as const, file, fileName: file.name } : null)
+      : mode === 'image' ? (captures.length ? { kind: 'images' as const, files: captures.map((c) => c.blob) } : null)
       : text.trim() ? { kind: 'text' as const, text: text.trim() } : null;
     if (!input) return;
     const url = job ? job.sourceUrl ?? '' : sourceUrl;
-    const thumbnail = job ? job.thumbnail : thumb ?? undefined;
+    let thumbnail = job ? job.thumbnail : thumb ?? undefined;
+    if (!job && input.kind === 'images') {
+      const chosen = captures.find((c) => c.key === thumbKey) ?? captures[0];
+      thumbnail = (chosen && (await captureThumbnail(chosen.blob))) ?? undefined;
+    }
     const controller = new AbortController();
     abortRef.current = controller;
     setWentBackground(false);
     setStartedAt(Date.now());
     setNow(Date.now());
-    setStage({ kind: 'running', phase: input.kind === 'video' ? 'envoi' : 'analyse' });
+    setStage({ kind: 'running', phase: input.kind === 'text' ? 'analyse' : 'envoi' });
     try {
       const provider = new GeminiProvider({
         apiKey: (settings.apiKey ?? '').trim(), model: settings.model, forceFilesApi: settings.forceFilesApi, fastMode: settings.fastMode,
@@ -160,12 +214,12 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
         setStage({ kind: 'norecipe' });
         return;
       }
-      const type: SourceType = input.kind;
+      const type: SourceType = input.kind === 'images' ? 'image' : input.kind;
       setErrors([]);
       setStage({
         kind: 'review',
         report,
-        draft: draftFromExtracted(report.recipe, { type, url: url.trim() || undefined, thumbnail: type === 'video' ? thumbnail : undefined }),
+        draft: draftFromExtracted(report.recipe, { type, url: url.trim() || undefined, thumbnail: type === 'text' ? undefined : thumbnail }),
       });
     } catch (e) {
       const error = e instanceof ExtractionError ? e : new ExtractionError('api', 'Erreur inattendue.', String(e));
@@ -173,18 +227,23 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
         setStage({ kind: 'input' });
         return;
       }
-      // F7 : une vidéo en échec est gardée pour être relancée plus tard sans la réimporter.
+      // F7 : une vidéo (ou un lot de captures) en échec est gardée pour être relancée plus tard sans la réimporter.
       let queued: 'oui' | 'pleine' | undefined;
-      if (input.kind === 'video') {
+      if (input.kind !== 'text') {
         if (job) {
           await updateQueueJob(job.id, { status: 'error', error: error.message, attempts: job.attempts + 1 });
           queued = 'oui';
         } else {
           const id = newId();
-          const ok = await addToQueue({
-            id, kind: 'video', blob: input.file, fileName: input.fileName, status: 'error', error: error.message, attempts: 1,
-            createdAt: Date.now(), ...(url.trim() ? { sourceUrl: url.trim() } : {}), ...(thumbnail ? { thumbnail } : {}),
-          });
+          const common = {
+            id, status: 'error' as const, error: error.message, attempts: 1, createdAt: Date.now(),
+            ...(url.trim() ? { sourceUrl: url.trim() } : {}), ...(thumbnail ? { thumbnail } : {}),
+          };
+          const ok = await addToQueue(
+            input.kind === 'video'
+              ? { ...common, kind: 'video', blob: input.file, ...(input.fileName ? { fileName: input.fileName } : {}) }
+              : { ...common, kind: 'images', images: input.files },
+          );
           if (ok) setJobId(id);
           queued = ok ? 'oui' : 'pleine';
         }
@@ -196,11 +255,13 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
     }
   }
 
-  function startManual() {
+  async function startManual() {
     setErrors([]);
+    const chosen = captures.find((c) => c.key === thumbKey) ?? captures[0];
+    const thumbnail = mode === 'video' ? thumb ?? undefined : mode === 'image' && chosen ? (await captureThumbnail(chosen.blob)) ?? undefined : undefined;
     setStage({
       kind: 'review',
-      draft: { ...emptyDraft(settings.defaultServings), sourceUrl: sourceUrl.trim(), thumbnail: mode === 'video' ? thumb ?? undefined : undefined },
+      draft: { ...emptyDraft(settings.defaultServings), sourceUrl: sourceUrl.trim(), thumbnail },
     });
   }
 
@@ -211,6 +272,7 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
     setThumb(null);
     setThumbUrl(null);
     setDuration(null);
+    setCaptureList([]);
     setText('');
     setSourceUrl('');
     setErrors([]);
@@ -276,7 +338,7 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
       </header>
 
       <div class="segmented" role="tablist" aria-label="Source de la recette">
-        {([['video', 'Vidéo'], ['text', 'Texte collé'], ['manual', 'À la main']] as [Mode, string][]).map(([m, label]) => (
+        {([['video', 'Vidéo'], ['image', 'Captures'], ['text', 'Texte'], ['manual', 'À la main']] as [Mode, string][]).map(([m, label]) => (
           <button
             key={m}
             type="button"
@@ -316,6 +378,19 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
           </>
         )}
 
+        {mode === 'image' && (
+          <CapturePicker
+            captures={captures}
+            thumbKey={thumbKey}
+            preparing={preparing}
+            disabled={running}
+            onPick={(l) => void onPickImages(l)}
+            onMove={moveCapture}
+            onRemove={(i) => setCaptureList(captures.filter((_, j) => j !== i))}
+            onThumb={setThumbKey}
+          />
+        )}
+
         {mode === 'text' && (
           <label class="field">
             <span>Texte de la recette</span>
@@ -345,7 +420,7 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
         </label>
 
         {mode === 'manual' ? (
-          <button type="button" class="btn" onClick={startManual}>Commencer la saisie</button>
+          <button type="button" class="btn" onClick={() => void startManual()}>Commencer la saisie</button>
         ) : running ? (
           <div class="stack">
             <div class="progress" role="status">
@@ -372,7 +447,7 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
             <button
               type="button"
               class="btn"
-              disabled={!aiReady || !online || (mode === 'video' ? !file && !jobId : !text.trim())}
+              disabled={!aiReady || !online || preparing > 0 || (mode === 'video' ? !file && !jobId : mode === 'image' ? !captures.length : !text.trim())}
               onClick={() => void extract()}
             >
               Extraire la recette
@@ -384,7 +459,7 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
       {queue.length > 0 && (
         <section class="card stack queue">
           <h2 class="card-title">En attente ({queue.length}/{QUEUE_MAX})</h2>
-          <p class="muted small">Vidéos dont l'extraction a échoué. Relance-les quand le quota gratuit est revenu ou que le réseau est meilleur.</p>
+          <p class="muted small">Vidéos et captures dont l'extraction a échoué. Relance-les quand le quota gratuit est revenu ou que le réseau est meilleur.</p>
           <ul class="list flush">
             {queue.map((job) => (
               <QueueRow
@@ -405,10 +480,10 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
           <h2 class="card-title">Échec de l'extraction</h2>
           <p>{stage.error.message}</p>
           {stage.queued === 'oui' && (
-            <p class="ok small">La vidéo est gardée dans la file d'attente : tu pourras la relancer plus tard sans la réimporter.</p>
+            <p class="ok small">{mode === 'image' ? 'Les captures sont gardées' : 'La vidéo est gardée'} dans la file d'attente : tu pourras relancer plus tard sans réimporter.</p>
           )}
           {stage.queued === 'pleine' && (
-            <p class="warn-text small">File d'attente pleine ({QUEUE_MAX} vidéos) : la vidéo n'a pas été gardée. Supprime une vidéo en attente pour faire de la place.</p>
+            <p class="warn-text small">File d'attente pleine ({QUEUE_MAX} éléments) : rien n'a été gardé. Supprime un élément en attente pour faire de la place.</p>
           )}
           {stage.error.durationsMs && Object.keys(stage.error.durationsMs).length > 0 && (
             <p class="muted small">
@@ -425,7 +500,7 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
           )}
           <div class="row">
             <button type="button" class="btn secondary" onClick={() => void extract()}>Réessayer</button>
-            <button type="button" class="btn ghost" onClick={startManual}>Saisir à la main</button>
+            <button type="button" class="btn ghost" onClick={() => void startManual()}>Saisir à la main</button>
           </div>
         </section>
       )}
@@ -434,9 +509,9 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
         <section class="card empty">
           <span class="empty-icon" aria-hidden="true">🤔</span>
           <h2 class="card-title">Aucune recette détectée</h2>
-          <p class="muted">{mode === 'video' ? 'Cette vidéo' : 'Ce texte'} ne semble pas contenir de recette.</p>
+          <p class="muted">{mode === 'video' ? 'Cette vidéo' : mode === 'image' ? 'Ces captures' : 'Ce texte'} ne semble pas contenir de recette.</p>
           <div class="row center">
-            <button type="button" class="btn secondary" onClick={startManual}>Saisir à la main</button>
+            <button type="button" class="btn secondary" onClick={() => void startManual()}>Saisir à la main</button>
             <button
               type="button"
               class="btn ghost"
@@ -462,9 +537,12 @@ function QueueRow({ job, current, disabled, onRetry, onDelete }: {
   const date = new Date(job.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   return (
     <li class={`queue-row ${current ? 'current' : ''}`}>
-      {url ? <img src={url} alt="" /> : <span class="queue-thumb" aria-hidden="true">🎬</span>}
+      {url ? <img src={url} alt="" /> : <span class="queue-thumb" aria-hidden="true">{job.kind === 'video' ? '🎬' : '🖼️'}</span>}
       <span class="grow queue-info">
-        <span class="small">{formatBytes(job.blob.size)} · {date}</span>
+        <span class="small">
+          {job.kind === 'images' && `${job.images.length} capture${job.images.length > 1 ? 's' : ''} · `}
+          {formatBytes(queueJobBytes(job))} · {date}
+        </span>
         {job.error && <span class="error small">{job.error}</span>}
         <span class="muted small">{job.attempts} essai{job.attempts > 1 ? 's' : ''}</span>
       </span>
@@ -473,6 +551,63 @@ function QueueRow({ job, current, disabled, onRetry, onDelete }: {
         <button type="button" class="icon-btn danger" aria-label="Retirer de la file d'attente" onClick={onDelete}>✕</button>
       </span>
     </li>
+  );
+}
+
+function CapturePicker({ captures, thumbKey, preparing, disabled, onPick, onMove, onRemove, onThumb }: {
+  captures: Capture[]; thumbKey: string | null; preparing: number; disabled: boolean;
+  onPick: (files: FileList | null) => void; onMove: (index: number, delta: -1 | 1) => void;
+  onRemove: (index: number) => void; onThumb: (key: string) => void;
+}) {
+  const full = captures.length >= MAX_CAPTURES;
+  return (
+    <div class="stack">
+      {captures.length > 0 && (
+        <>
+          <p class="muted small">
+            {captures.length} capture{captures.length > 1 ? 's' : ''}, lue{captures.length > 1 ? 's' : ''} dans cet ordre. Touche une image pour en faire la miniature de la fiche.
+          </p>
+          <ol class="captures" aria-label="Captures d'écran">
+            {captures.map((c, i) => {
+              const isThumb = c.key === thumbKey;
+              return (
+                <li key={c.key} class={`capture ${isThumb ? 'is-thumb' : ''}`}>
+                  <button
+                    type="button"
+                    class="capture-img"
+                    aria-pressed={isThumb}
+                    aria-label={`Capture ${i + 1}${isThumb ? ', miniature de la fiche' : ' : en faire la miniature'}`}
+                    disabled={disabled}
+                    onClick={() => onThumb(c.key)}
+                  >
+                    <img src={c.url} alt="" />
+                    <span class="capture-num" aria-hidden="true">{i + 1}</span>
+                    {isThumb && <span class="capture-star" aria-hidden="true">★</span>}
+                  </button>
+                  <span class="capture-actions">
+                    <button type="button" class="icon-btn" aria-label={`Avancer la capture ${i + 1}`} disabled={disabled || i === 0} onClick={() => onMove(i, -1)}>‹</button>
+                    <button type="button" class="icon-btn danger" aria-label={`Retirer la capture ${i + 1}`} disabled={disabled} onClick={() => onRemove(i)}>✕</button>
+                    <button type="button" class="icon-btn" aria-label={`Reculer la capture ${i + 1}`} disabled={disabled || i === captures.length - 1} onClick={() => onMove(i, 1)}>›</button>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </>
+      )}
+      {preparing > 0 ? (
+        <p class="progress" role="status"><span class="spinner" aria-hidden="true" /> Préparation des captures ({preparing})…</p>
+      ) : !full ? (
+        <label class={`picker ${captures.length ? 'compact' : ''}`}>
+          <input type="file" accept="image/*" multiple disabled={disabled} onChange={(e) => { onPick(e.currentTarget.files); e.currentTarget.value = ''; }} />
+          {!captures.length && <span class="picker-icon" aria-hidden="true">🖼️</span>}
+          <span>{captures.length ? '＋ Ajouter des captures' : 'Choisir des captures d\'écran (Photos)'}</span>
+          {!captures.length && <span class="muted small">Plusieurs captures possibles pour une même recette (jusqu'à {MAX_CAPTURES}).</span>}
+        </label>
+      ) : (
+        <p class="muted small">Maximum {MAX_CAPTURES} captures par recette.</p>
+      )}
+    </div>
   );
 }
 

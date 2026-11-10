@@ -27,7 +27,8 @@ export interface Step {
   timerSeconds?: number | null;
 }
 
-export type SourceType = 'video' | 'text' | 'manual';
+/** `image` : une ou plusieurs captures d'écran (V2-J1). */
+export type SourceType = 'video' | 'image' | 'text' | 'manual';
 
 export interface Recipe {
   id: string;
@@ -85,19 +86,30 @@ export interface PantryItem {
 
 export const DEFAULT_PANTRY: PantryItem[] = ['sel', 'poivre', 'huile', 'huile d\'olive', 'sucre', 'farine', 'eau'].map((name) => ({ name }));
 
-/** Vidéo en attente d'extraction (F7) : conservée tant que la recette n'est pas validée. */
-export interface QueueJob {
+interface QueueJobBase {
   id: string;
-  kind: 'video';
-  blob: Blob;
   sourceUrl?: string;
   status: 'pending' | 'error';
   error?: string;
   attempts: number;
   createdAt: number;
-  /** Ajouts au §7 : nom du fichier et miniature, pour reconnaître la vidéo dans la file. */
+  /** Ajouts au §7 : nom du fichier et miniature, pour reconnaître le média dans la file. */
   fileName?: string;
   thumbnail?: Blob;
+}
+
+/**
+ * Média en attente d'extraction (F7) : conservé tant que la recette n'est pas validée.
+ * V2-J1 : la file accepte aussi un lot de captures d'écran (dans l'ordre de lecture).
+ */
+export type QueueJob = QueueJobBase & ({ kind: 'video'; blob: Blob } | { kind: 'images'; images: Blob[] });
+
+/** Champs modifiables d'un élément de la file. */
+export type QueueJobPatch = Partial<Pick<QueueJobBase, 'status' | 'error' | 'attempts'>>;
+
+/** Poids total d'un élément de la file. */
+export function queueJobBytes(job: QueueJob): number {
+  return job.kind === 'video' ? job.blob.size : job.images.reduce((n, b) => n + b.size, 0);
 }
 
 /** Nombre maximal de vidéos gardées en file d'attente (§11 : mémoire). */

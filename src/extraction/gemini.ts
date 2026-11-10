@@ -1,5 +1,5 @@
 // Implémentation Gemini de ExtractionProvider (F2), appelée directement depuis le navigateur.
-import { RESPONSE_SCHEMA, SYSTEM_INSTRUCTION, USER_PROMPT_TEXT, USER_PROMPT_VIDEO } from './prompt';
+import { RESPONSE_SCHEMA, SYSTEM_INSTRUCTION, USER_PROMPT_TEXT, USER_PROMPT_VIDEO, userPromptImages } from './prompt';
 import {
   ExtractionError,
   type ExtractionInput,
@@ -51,6 +51,12 @@ export function geminiVideoMime(file: Blob, fileName?: string): string {
     case 'mpeg': case 'mpg': return 'video/mpeg';
     default: return 'video/mp4';
   }
+}
+
+/** Types d'image acceptés par Gemini ; les captures sont normalement déjà recompressées en JPEG. */
+export function geminiImageMime(file: Blob): string {
+  const type = file.type.toLowerCase();
+  return ['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif'].includes(type) ? type : 'image/jpeg';
 }
 
 function headers(apiKey: string, extra: Record<string, string> = {}): Record<string, string> {
@@ -152,7 +158,9 @@ export class GeminiProvider implements ExtractionProvider {
       onPhase?.(p);
     };
 
-    let uploaded: GeminiFile | null = null;
+    const uploaded: GeminiFile[] = [];
+    // L'analyse basse résolution ne concerne que la vidéo : sur une capture, elle rendrait le texte illisible.
+    this.mediaIsVideo = input.kind === 'video';
     let transport: ExtractionReport['meta']['transport'] = 'text';
     let bytes: number | undefined;
     const parts: Part[] = [];
@@ -167,12 +175,36 @@ export class GeminiProvider implements ExtractionProvider {
           parts.push({ inlineData: { mimeType, data: await blobToBase64(input.file) } });
         } else {
           transport = 'files_api';
-          uploaded = await this.uploadResumable(input.file, mimeType, input.fileName, signal);
+          const sent = await this.uploadResumable(input.file, mimeType, input.fileName, signal);
+          uploaded.push(sent);
           phase('traitement');
-          uploaded = await this.waitActive(uploaded, signal);
-          parts.push({ fileData: { mimeType: uploaded.mimeType || mimeType, fileUri: uploaded.uri } });
+          const active = await this.waitActive(sent, signal);
+          parts.push({ fileData: { mimeType: active.mimeType || mimeType, fileUri: active.uri } });
         }
         parts.push({ text: USER_PROMPT_VIDEO });
+      } else if (input.kind === 'images') {
+        if (input.files.length === 0) throw new ExtractionError('api', 'Aucune capture à analyser.');
+        bytes = input.files.reduce((n, f) => n + f.size, 0);
+        phase('envoi');
+        const many = input.files.length > 1;
+        if (!this.config.forceFilesApi && bytes <= INLINE_MAX_BYTES) {
+          transport = 'inline';
+          for (const [i, f] of input.files.entries()) {
+            if (many) parts.push({ text: `Capture ${i + 1} :` });
+            parts.push({ inlineData: { mimeType: geminiImageMime(f), data: await blobToBase64(f) } });
+          }
+        } else {
+          transport = 'files_api';
+          for (const [i, f] of input.files.entries())
+            uploaded.push(await this.uploadResumable(f, geminiImageMime(f), `capture-${i + 1}`, signal));
+          phase('traitement');
+          for (const [i, f] of uploaded.entries()) {
+            const active = await this.waitActive(f, signal);
+            if (many) parts.push({ text: `Capture ${i + 1} :` });
+            parts.push({ fileData: { mimeType: active.mimeType || 'image/jpeg', fileUri: active.uri } });
+          }
+        }
+        parts.push({ text: userPromptImages(input.files.length) });
       } else {
         parts.push({ text: USER_PROMPT_TEXT + input.text });
       }
@@ -192,7 +224,7 @@ export class GeminiProvider implements ExtractionProvider {
           return {
             recipe,
             warnings,
-            meta: { provider: this.id, model: this.model, transport, bytes, durationsMs: durations, fastMode: this.lowResolution && transport !== 'text', totalTokens, attempts, rawJson: text },
+            meta: { provider: this.id, model: this.model, transport, bytes, durationsMs: durations, fastMode: this.lowResolution && this.mediaIsVideo, totalTokens, attempts, rawJson: text },
           };
         } catch (e) {
           if (!(e instanceof InvalidRecipeJson)) throw e;
@@ -209,7 +241,7 @@ export class GeminiProvider implements ExtractionProvider {
       }
       throw e;
     } finally {
-      if (uploaded) void this.deleteFile(uploaded.name);
+      for (const f of uploaded) void this.deleteFile(f.name);
     }
   }
 
@@ -228,6 +260,7 @@ export class GeminiProvider implements ExtractionProvider {
   /** Réglages d'accélération ; chacun est retiré si le modèle le refuse (HTTP 400). */
   private lowThinking = true;
   private lowResolution: boolean;
+  private mediaIsVideo = false;
   private onReceive?: (chars: number) => void;
 
   private async generateOnce(parts: Part[], signal?: AbortSignal): Promise<{ text: string; totalTokens?: number }> {
@@ -237,7 +270,7 @@ export class GeminiProvider implements ExtractionProvider {
       } catch (e) {
         const d = e instanceof ExtractionError && /HTTP 400/.test(e.detail ?? '') ? e.detail ?? '' : '';
         if (this.lowThinking && /thinking/i.test(d)) { this.lowThinking = false; continue; }
-        if (this.lowResolution && /resolution/i.test(d)) { this.lowResolution = false; continue; }
+        if (this.lowResolution && this.mediaIsVideo && /resolution/i.test(d)) { this.lowResolution = false; continue; }
         throw e;
       }
     }
@@ -253,7 +286,7 @@ export class GeminiProvider implements ExtractionProvider {
         responseSchema: RESPONSE_SCHEMA,
         temperature: 0.2,
         ...(this.lowThinking ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
-        ...(this.lowResolution ? { mediaResolution: 'MEDIA_RESOLUTION_LOW' } : {}),
+        ...(this.lowResolution && this.mediaIsVideo ? { mediaResolution: 'MEDIA_RESOLUTION_LOW' } : {}),
       },
     };
     const res = await call(

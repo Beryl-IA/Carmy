@@ -97,7 +97,7 @@ function checkRecipe(r: unknown, i: number): StoredRecipe {
     tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
     collectionIds: Array.isArray(r.collectionIds) ? (r.collectionIds as string[]) : [],
     servings: typeof r.servings === 'number' && r.servings > 0 ? r.servings : 1,
-    sourceType: r.sourceType === 'video' || r.sourceType === 'text' ? r.sourceType : 'manual',
+    sourceType: r.sourceType === 'video' || r.sourceType === 'image' || r.sourceType === 'text' ? r.sourceType : 'manual',
     createdAt: typeof r.createdAt === 'number' ? r.createdAt : 0,
     updatedAt: typeof r.updatedAt === 'number' ? r.updatedAt : 0,
   };

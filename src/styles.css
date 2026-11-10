@@ -150,8 +150,8 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .tab-add svg { background: var(--terracotta); color: #fff; border-radius: 10px; padding: 3px; }
 .tab-add.active svg { background: var(--terracotta-fonce); }
 
-.segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; background: #F6E6CF; padding: 4px; border-radius: 14px; }
-.segmented button { font: inherit; font-weight: 600; font-size: 15px; min-height: 44px; border: 0; border-radius: 11px; background: transparent; color: var(--brun-doux); }
+.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; background: #F6E6CF; padding: 4px; border-radius: 14px; }
+.segmented button { font: inherit; font-weight: 600; font-size: 15px; min-height: 44px; border: 0; border-radius: 11px; padding: 0 4px; background: transparent; color: var(--brun-doux); }
 .segmented button.active { background: var(--carte); color: var(--terracotta-fonce); box-shadow: 0 1px 4px rgb(59 42 32 / 12%); }
 
 .recipe-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
@@ -340,3 +340,19 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .help-page section h2 { font-size: 21px; color: var(--terracotta-fonce); }
 .help-page p, .help-page li { font-size: 16px; }
 .help-page ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
+
+/* ---------- V2-J1 : captures d'écran ---------- */
+.picker.compact { min-height: 64px; flex-direction: row; padding: 10px 16px; }
+.captures { list-style: none; margin: 0; padding: 0 0 4px; display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; }
+.capture { flex: none; width: 136px; display: flex; flex-direction: column; gap: 4px; scroll-snap-align: start; }
+.capture-img { position: relative; padding: 0; border: 3px solid transparent; border-radius: 14px; background: none; overflow: hidden; cursor: pointer; }
+.capture-img img { display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; object-position: top; border-radius: 10px; }
+.capture.is-thumb .capture-img { border-color: var(--terracotta-btn); }
+.capture-num, .capture-star {
+  position: absolute; top: 6px; min-width: 24px; height: 24px; border-radius: 12px; display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; background: var(--brun); color: var(--creme); padding: 0 6px;
+}
+.capture-num { left: 6px; }
+.capture-star { right: 6px; background: var(--terracotta-btn); color: #fff; }
+.capture-actions { display: flex; justify-content: space-between; }
+.capture-actions .icon-btn { width: 42px; height: 44px; }

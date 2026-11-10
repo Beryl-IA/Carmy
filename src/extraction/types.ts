@@ -19,6 +19,8 @@ export interface ExtractedRecipe {
 
 export type ExtractionInput =
   | { kind: 'video'; file: Blob; fileName?: string }
+  /** Captures d'écran d'une même recette, dans l'ordre de lecture (V2-J1). */
+  | { kind: 'images'; files: Blob[] }
   | { kind: 'text'; text: string };
 
 export type ExtractionPhase = 'envoi' | 'traitement' | 'analyse' | 'mise_en_forme';

@@ -7,7 +7,7 @@ import {
 import {
   backupFileName, backupReminder, blobToDataUrl, dataUrlToBlob, InvalidBackup, mergeData, parseBackup, toBackupFile, type AppData,
 } from '../src/model/backup';
-import { DEFAULT_SETTINGS, EMPTY_SHOPPING, QUEUE_MAX, type QueueJob, type Recipe } from '../src/model/types';
+import { DEFAULT_SETTINGS, EMPTY_SHOPPING, QUEUE_MAX, queueJobBytes, type QueueJob, type Recipe } from '../src/model/types';
 
 const store = new Map<string, string>();
 globalThis.localStorage = {
@@ -137,11 +137,22 @@ describe('file d\'attente', () => {
     expect(await addToQueue(job('trop', 0))).toBe(false);
     const q = await listQueue();
     expect(q.map((j) => j.id)).toEqual(['j4', 'j3', 'j2', 'j1', 'j0']);
-    expect(await bytesOf(q[0]!.blob)).toEqual([...jpeg]);
+    const first = q[0]!;
+    expect(first.kind === 'video' && (await bytesOf(first.blob))).toEqual([...jpeg]);
     await updateQueueJob('j4', { attempts: 2, error: 'Réseau' });
     expect((await listQueue())[0]).toMatchObject({ attempts: 2, error: 'Réseau' });
     await deleteQueueJob('j4');
     expect(await listQueue()).toHaveLength(4);
+  });
+  it('garde aussi un lot de captures, dans l\'ordre', async () => {
+    const a = new Blob([new Uint8Array([1])], { type: 'image/jpeg' });
+    const b = new Blob([new Uint8Array([2, 3])], { type: 'image/jpeg' });
+    await addToQueue({ id: 'img', kind: 'images', images: [a, b], status: 'error', attempts: 1, createdAt: 1 });
+    const [got] = await listQueue();
+    expect(got?.kind).toBe('images');
+    if (got?.kind !== 'images') return;
+    expect(await Promise.all(got.images.map(bytesOf))).toEqual([[1], [2, 3]]);
+    expect(queueJobBytes(got)).toBe(3);
   });
   it('n\'est pas incluse dans la sauvegarde', async () => {
     await addToQueue(job('j', 1));

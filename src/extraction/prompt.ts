@@ -1,6 +1,6 @@
 import { AISLES, UNITS } from './types';
 
-export const SYSTEM_INSTRUCTION = `Tu es un assistant culinaire. Tu extrais UNE recette de cuisine à partir d'une vidéo (parole, texte incrusté à l'écran, légende) ou d'un texte.
+export const SYSTEM_INSTRUCTION = `Tu es un assistant culinaire. Tu extrais UNE recette de cuisine à partir d'une vidéo (parole, texte incrusté à l'écran, légende), d'une ou plusieurs captures d'écran, ou d'un texte.
 
 Règles :
 - N'invente rien. Si une quantité n'est pas donnée, mets null. Si une information est absente, mets null.
@@ -17,6 +17,12 @@ Règles :
 - "detectedLanguage" : code ISO 639-1 de la langue d'origine (ex. "fr", "en", "es").`;
 
 export const USER_PROMPT_VIDEO = 'Extrais la recette de cette vidéo, en tenant compte de ce qui est dit, de ce qui est montré et du texte affiché à l\'écran.';
+/** Consigne pour un lot de captures d'écran : elles forment une seule recette, dans l'ordre donné. */
+export function userPromptImages(count: number): string {
+  return count > 1
+    ? `Ces ${count} captures d'écran, numérotées dans l'ordre de lecture, montrent UNE SEULE recette (par exemple les ingrédients sur l'une et les étapes sur les suivantes). Assemble-les en une seule fiche : garde l'ordre des étapes, ne répète pas un ingrédient ou une étape visible sur deux captures qui se chevauchent, et ignore l'interface de l'appli (heure, boutons, commentaires, mentions « j'aime »).`
+    : 'Extrais la recette de cette capture d\'écran. Ignore l\'interface de l\'appli (heure, boutons, commentaires, mentions « j\'aime »).';
+}
 export const USER_PROMPT_TEXT = 'Extrais la recette du texte suivant :\n\n';
 
 /** Schéma de sortie au format OpenAPI accepté par Gemini (responseSchema). */

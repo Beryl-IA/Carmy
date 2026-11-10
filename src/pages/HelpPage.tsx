@@ -34,7 +34,7 @@ export function HelpPage() {
         <ul class="small">
           <li>L'offre gratuite de l'API a un quota journalier. Un abonnement Gemini grand public ne s'applique pas à l'API.</li>
           <li>La clé reste sur cet iPhone et n'est jamais incluse dans les sauvegardes.</li>
-          <li>Les vidéos envoyées passent par Google : n'envoie que des recettes publiques, rien de personnel.</li>
+          <li>Les vidéos et captures envoyées passent par Google : n'envoie que des recettes publiques, rien de personnel (vérifie qu'aucune notification ou message privé n'apparaît sur tes captures).</li>
         </ul>
       </section>
 
@@ -42,10 +42,11 @@ export function HelpPage() {
         <h2>Ajouter une recette</h2>
         <ul>
           <li><strong>Vidéo</strong> : enregistre d'abord le reel ou le TikTok dans Photos (bouton de téléchargement de l'appli d'origine), puis Ajouter › Vidéo. Colle le lien du post pour le retrouver plus tard.</li>
-          <li><strong>Texte collé</strong> : copie la légende ou la description du post.</li>
+          <li><strong>Captures</strong> : choisis une ou plusieurs captures d'écran dans Photos (jusqu'à 10), par exemple les ingrédients sur l'une et les étapes sur les suivantes. Vérifie l'ordre avec ‹ et › : l'IA les lit dans cet ordre. Touche la capture qui servira de miniature (★).</li>
+          <li><strong>Texte</strong> : copie la légende ou la description du post.</li>
           <li><strong>À la main</strong> : sans IA, fonctionne hors-ligne.</li>
           <li>Relis toujours la fiche avant d'enregistrer : l'IA peut se tromper sur une quantité.</li>
-          <li>En cas d'échec (quota, réseau), la vidéo reste dans <strong>En attente</strong> : touche Relancer plus tard.</li>
+          <li>En cas d'échec (quota, réseau), la vidéo ou les captures restent dans <strong>En attente</strong> : touche Relancer plus tard.</li>
         </ul>
       </section>
 
@@ -71,7 +72,7 @@ export function HelpPage() {
       <section class="card stack">
         <h2>Tes données</h2>
         <ul>
-          <li>Tout est enregistré uniquement sur cet iPhone. Rien n'est envoyé ailleurs, sauf la vidéo ou le texte analysé par Google.</li>
+          <li>Tout est enregistré uniquement sur cet iPhone. Rien n'est envoyé ailleurs, sauf la vidéo, les captures ou le texte analysés par Google.</li>
           <li><strong>Exporte une sauvegarde régulièrement</strong> (Réglages › Sauvegarde) et range-la dans iCloud Drive : si l'appli est supprimée, tes recettes le sont aussi.</li>
           <li>Hors-ligne, tout fonctionne sauf l'extraction par IA.</li>
           <li>Quand une nouvelle version est publiée, un bandeau « Nouvelle version disponible » apparaît : touche Mettre à jour.</li>

@@ -150,7 +150,15 @@ Points clés du modèle :
 - Historique linéaire sur `main` (la branche de travail `j0-j1` est identique à `main` et peut être supprimée). Aucune pull request n'a été ouverte : l'utilisatrice a demandé de pousser directement sur `main` pour déclencher le déploiement.
 - Dans un environnement Claude Code distant, l'écriture sur le dépôt nécessite que `Beryl-IA/Carmy` soit **attaché à la session** (droits de push).
 
-## 10. Pistes V2 (cahier des charges §13) — l'utilisatrice va préciser ses propres fonctionnalités
+## 10. V2 — batch cooking (en cours, demandée le 10/11/2026)
+
+Feuille de route validée par l'utilisatrice (détail dans le README) :
+- **V2-J1 (1.1.0, livré)** : recette depuis 1 à 10 captures d'écran (`media/image.ts`, entrée `images` du provider, source `image`, file d'attente `kind: 'images'`).
+- **V2-J2** : fiche enrichie inspirée (fonctionnellement seulement) de l'appli Basta : icône par ingrédient, conservation conseillée frigo/congélateur, valeurs nutritionnelles ; session de batch cooking avec déroulé optimisé.
+- **V2-J3** : réserve (plats cuisinés + produits achetés) avec **quantités** ; cuisiner une recette décompte automatiquement les ingrédients du stock (ex. 300 g de riz).
+- **V2-J4** : planning de la semaine, **midi et soir uniquement, 1 personne**.
+
+## 11. Pistes V2 d'origine (cahier des charges §13) — l'utilisatrice va préciser ses propres fonctionnalités
 
 - Calories / valeurs nutritionnelles par portion.
 - « Que cuisiner avec ce que j'ai » (recherche par ingrédients disponibles — `search.ts`/`normalizeText` réutilisables).

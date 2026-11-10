@@ -1,7 +1,7 @@
 // Stockage local IndexedDB (via `idb`). Aucune donnée ne quitte l'appareil.
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import {
-  DEFAULT_PANTRY, DEFAULT_SETTINGS, EMPTY_SHOPPING, QUEUE_MAX, type Collection, type PantryItem, type QueueJob, type Recipe, type Settings,
+  DEFAULT_PANTRY, DEFAULT_SETTINGS, EMPTY_SHOPPING, QUEUE_MAX, type Collection, type PantryItem, type QueueJob, type QueueJobPatch, type Recipe, type Settings,
   type ShoppingState,
 } from '../model/types';
 import type { AppData } from '../model/backup';
@@ -210,7 +210,7 @@ export async function listQueue(): Promise<QueueJob[]> {
   return all.sort((a, b) => a.createdAt - b.createdAt);
 }
 
-/** Ajoute une vidéo à la file. Renvoie false si la file est pleine (QUEUE_MAX). */
+/** Ajoute une vidéo ou un lot de captures à la file. Renvoie false si la file est pleine (QUEUE_MAX). */
 export async function addToQueue(job: QueueJob): Promise<boolean> {
   const db = await getDb();
   const tx = db.transaction('queue', 'readwrite');
@@ -223,7 +223,7 @@ export async function addToQueue(job: QueueJob): Promise<boolean> {
   return true;
 }
 
-export async function updateQueueJob(id: string, patch: Partial<Omit<QueueJob, 'id' | 'blob'>>): Promise<void> {
+export async function updateQueueJob(id: string, patch: QueueJobPatch): Promise<void> {
   const db = await getDb();
   const tx = db.transaction('queue', 'readwrite');
   const job = await tx.store.get(id);
