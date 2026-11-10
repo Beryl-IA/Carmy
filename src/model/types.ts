@@ -52,6 +52,39 @@ export interface Collection {
   name: string;
 }
 
+/** Article ajouté à la main (hors recettes). */
+export interface ShoppingItem {
+  id: string;
+  name: string;
+  quantity: number | null;
+  unit: Unit;
+  aisle: Aisle;
+  checked: boolean;
+  origin: 'recipe' | 'manual';
+  recipeIds: string[];
+}
+
+/**
+ * La liste est recalculée à partir des recettes choisies, des articles manuels et du garde-manger ;
+ * on ne stocke que les choix et l'état coché (§7).
+ */
+export interface ShoppingState {
+  selections: { recipeId: string; servings: number }[];
+  manualItems: ShoppingItem[];
+  checkedKeys: string[];
+  /** Ajouts au §7 : lignes issues de recettes retirées de la liste, et articles du garde-manger à acheter quand même. */
+  removedKeys: string[];
+  pantryOverrides: string[];
+}
+
+export const EMPTY_SHOPPING: ShoppingState = { selections: [], manualItems: [], checkedKeys: [], removedKeys: [], pantryOverrides: [] };
+
+export interface PantryItem {
+  name: string;
+}
+
+export const DEFAULT_PANTRY: PantryItem[] = ['sel', 'poivre', 'huile', 'huile d\'olive', 'sucre', 'farine', 'eau'].map((name) => ({ name }));
+
 export interface Settings {
   apiKey?: string;
   model: string;

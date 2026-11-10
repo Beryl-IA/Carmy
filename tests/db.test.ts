@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   deleteCollection, deleteRecipe, getRecipe, listCollections, listRecipes, loadSettings, resetDbForTests, saveCollection, saveRecipe,
-  saveSettings, setRecipeInCollection,
+  saveSettings, setRecipeInCollection, loadShopping, saveShopping, addToShopping, loadPantry, savePantry,
 } from '../src/db/db';
 import type { Recipe } from '../src/model/types';
 
@@ -77,5 +77,21 @@ describe('collections', () => {
     expect((await getRecipe('a'))?.collectionIds).toEqual(['c2']);
     await setRecipeInCollection('a', 'c2', false);
     expect((await getRecipe('a'))?.collectionIds).toEqual([]);
+  });
+});
+
+describe('courses et garde-manger', () => {
+  it('propose un garde-manger par défaut puis garde celui de l\'utilisateur', async () => {
+    expect((await loadPantry()).map((p) => p.name)).toContain('sel');
+    await savePantry([{ name: 'riz' }]);
+    expect(await loadPantry()).toEqual([{ name: 'riz' }]);
+  });
+  it('ajoute une recette, met à jour ses portions et réinitialise les lignes retirées', async () => {
+    expect((await loadShopping()).selections).toEqual([]);
+    await saveShopping({ ...(await loadShopping()), removedKeys: ['x|masse'], checkedKeys: ['y|masse'] });
+    expect(await addToShopping('a', 2)).toBe(false);
+    expect(await loadShopping()).toMatchObject({ selections: [{ recipeId: 'a', servings: 2 }], removedKeys: [], checkedKeys: ['y|masse'] });
+    expect(await addToShopping('a', 4)).toBe(true);
+    expect((await loadShopping()).selections).toEqual([{ recipeId: 'a', servings: 4 }]);
   });
 });

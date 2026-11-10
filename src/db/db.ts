@@ -1,6 +1,8 @@
 // Stockage local IndexedDB (via `idb`). Aucune donnée ne quitte l'appareil.
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import { DEFAULT_SETTINGS, type Collection, type Recipe, type Settings } from '../model/types';
+import {
+  DEFAULT_PANTRY, DEFAULT_SETTINGS, EMPTY_SHOPPING, type Collection, type PantryItem, type Recipe, type Settings, type ShoppingState,
+} from '../model/types';
 
 const DB_NAME = 'carmy';
 const DB_VERSION = 1;
@@ -154,6 +156,42 @@ export async function saveSettings(settings: Settings): Promise<void> {
   const current = (await tx.store.get(SETTINGS_KEY)) as Partial<Settings> | undefined;
   await tx.store.put({ ...settings, recipesSinceBackup: current?.recipesSinceBackup ?? settings.recipesSinceBackup }, SETTINGS_KEY);
   await tx.done;
+}
+
+// ---------- Liste de courses et garde-manger (F6) ----------
+
+const SHOPPING_KEY = 'shopping';
+const PANTRY_KEY = 'pantry';
+
+export async function loadShopping(): Promise<ShoppingState> {
+  const s = (await (await getDb()).get('kv', SHOPPING_KEY)) as Partial<ShoppingState> | undefined;
+  return { ...EMPTY_SHOPPING, ...s };
+}
+
+export async function saveShopping(state: ShoppingState): Promise<void> {
+  await (await getDb()).put('kv', state, SHOPPING_KEY);
+}
+
+/** Garde-manger ; la liste par défaut est proposée au premier lancement. */
+export async function loadPantry(): Promise<PantryItem[]> {
+  const p = (await (await getDb()).get('kv', PANTRY_KEY)) as PantryItem[] | undefined;
+  return p ?? DEFAULT_PANTRY;
+}
+
+export async function savePantry(items: PantryItem[]): Promise<void> {
+  await (await getDb()).put('kv', items, PANTRY_KEY);
+}
+
+/** Ajoute une recette à la liste (ou met à jour ses portions). Renvoie true si elle y était déjà. */
+export async function addToShopping(recipeId: string, servings: number): Promise<boolean> {
+  const s = await loadShopping();
+  const existing = s.selections.find((x) => x.recipeId === recipeId);
+  const selections = existing
+    ? s.selections.map((x) => (x.recipeId === recipeId ? { ...x, servings } : x))
+    : [...s.selections, { recipeId, servings }];
+  // Nouvelle recette = nouvelles courses : les lignes retirées réapparaissent.
+  await saveShopping({ ...s, selections, removedKeys: existing ? s.removedKeys : [] });
+  return Boolean(existing);
 }
 
 // ---------- Persistance du stockage (F8) ----------
