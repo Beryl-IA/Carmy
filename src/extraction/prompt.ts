@@ -104,3 +104,37 @@ export const RESPONSE_SCHEMA = {
   required: ['isRecipe', 'title', 'servings', 'tags', 'ingredients', 'steps'],
   propertyOrdering: ['isRecipe', 'title', 'servings', 'prepMinutes', 'cookMinutes', 'tags', 'ingredients', 'steps', 'detectedLanguage', 'storage', 'nutrition'],
 } as const;
+
+/** V2-J2b : déroulé d'une session de batch cooking (plusieurs recettes cuisinées en une fois, pour 1 personne). */
+export const BATCH_INSTRUCTION = `Tu es un chef spécialiste du batch cooking. On te donne plusieurs recettes (JSON, avec un "index") à cuisiner en une seule session, avec les quantités déjà calculées. Construis UN déroulé unique, le plus court possible, pour une personne seule dans une cuisine domestique (4 feux, 1 four).
+
+Règles :
+- Commence par ce qui est long et sans surveillance (préchauffer le four, faire cuire légumineuses, céréales, mijotés, rôtis), puis avance les préparations des autres recettes pendant ces cuissons.
+- Regroupe les tâches identiques entre recettes (éplucher et émincer tous les oignons en une fois, peser les épices…) et indique pour quelles recettes et en quelles quantités (« Émincer 3 oignons : 2 pour le chili, 1 pour le curry »).
+- Chaque étape = une action claire, en français, au tutoiement, en reprenant les quantités. N'invente pas d'ingrédient. Garde toutes les étapes utiles de chaque recette.
+- "recipes" = liste des index des recettes concernées par l'étape (au moins un). Chaque recette doit apparaître dans au moins une étape.
+- "timerSeconds" = durée d'une cuisson ou d'une attente à minuter dans cette étape, sinon null.
+- Termine par le refroidissement (2 h maximum à température ambiante) et la mise en boîtes hermétiques étiquetées, portion par portion.
+- "totalMinutes" = durée totale estimée de la session, en minutes.`;
+
+export const BATCH_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    totalMinutes: { type: 'INTEGER', nullable: true },
+    steps: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          text: { type: 'STRING' },
+          recipes: { type: 'ARRAY', items: { type: 'INTEGER' } },
+          timerSeconds: { type: 'INTEGER', nullable: true },
+        },
+        required: ['text', 'recipes', 'timerSeconds'],
+        propertyOrdering: ['text', 'recipes', 'timerSeconds'],
+      },
+    },
+  },
+  required: ['totalMinutes', 'steps'],
+  propertyOrdering: ['totalMinutes', 'steps'],
+} as const;

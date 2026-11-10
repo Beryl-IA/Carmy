@@ -4,6 +4,8 @@ import { loadSettings, requestPersistence, saveSettings } from './db/db';
 import type { Settings } from './model/types';
 import { EMPTY_FILTER, type RecipeFilter } from './model/search';
 import { AddPage } from './pages/AddPage';
+import { BatchCookPage } from './pages/BatchCookPage';
+import { BatchPage } from './pages/BatchPage';
 import { CollectionsPage } from './pages/CollectionsPage';
 import { CookPage } from './pages/CookPage';
 import { HelpPage } from './pages/HelpPage';
@@ -52,7 +54,7 @@ export function App() {
     );
   if (!settings) return <div class="app loading" aria-busy="true" />;
 
-  const cooking = route.name === 'cuisine';
+  const cooking = route.name === 'cuisine' || route.name === 'batch-cuisine';
   return (
     <TimersProvider cooking={cooking}>
     <div class={`app ${cooking ? 'cooking' : ''}`}>
@@ -73,6 +75,8 @@ export function App() {
       {route.name === 'cuisine' && (
         <CookPage key={route.id} id={route.id} step={route.step} servings={route.servings} defaultServings={settings.defaultServings} navToken={route} />
       )}
+      {route.name === 'batch' && <BatchPage settings={settings} />}
+      {route.name === 'batch-cuisine' && <BatchCookPage step={route.step} navToken={route} />}
       {!cooking && <TimerDock />}
       {!cooking && <TabBar active={tab} badges={{ ajouter: queueCount }} />}
     </div>

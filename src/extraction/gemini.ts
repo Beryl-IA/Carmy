@@ -1,5 +1,5 @@
 // Implémentation Gemini de ExtractionProvider (F2), appelée directement depuis le navigateur.
-import { DETAILS_INSTRUCTION, DETAILS_SCHEMA, RESPONSE_SCHEMA, SYSTEM_INSTRUCTION, USER_PROMPT_TEXT, USER_PROMPT_VIDEO, userPromptImages } from './prompt';
+import { BATCH_INSTRUCTION, BATCH_SCHEMA, DETAILS_INSTRUCTION, DETAILS_SCHEMA, RESPONSE_SCHEMA, SYSTEM_INSTRUCTION, USER_PROMPT_TEXT, USER_PROMPT_VIDEO, userPromptImages } from './prompt';
 import {
   ExtractionError,
   type ExtractionInput,
@@ -11,6 +11,7 @@ import {
   type RecipeForDetails,
 } from './types';
 import { InvalidRecipeJson, parseExtractedRecipe, parseRecipeDetails } from './validate';
+import { InvalidBatchPlan, batchPayload, parseBatchPlan, type BatchPlan, type BatchRecipe, type BatchSelection } from '../model/batch';
 
 /** Consigne système et schéma de réponse d'une requête. */
 interface RequestSpec {
@@ -19,6 +20,7 @@ interface RequestSpec {
 }
 const EXTRACT: RequestSpec = { system: SYSTEM_INSTRUCTION, schema: RESPONSE_SCHEMA };
 const DETAILS: RequestSpec = { system: DETAILS_INSTRUCTION, schema: DETAILS_SCHEMA };
+const BATCH: RequestSpec = { system: BATCH_INSTRUCTION, schema: BATCH_SCHEMA };
 
 const API = 'https://generativelanguage.googleapis.com';
 
@@ -277,6 +279,27 @@ export class GeminiProvider implements ExtractionProvider {
       }
     }
     throw new ExtractionError('reponse_invalide', `Réponse de l'IA inexploitable : ${lastError?.message ?? ''}`);
+  }
+
+  /** V2-J2b : déroulé optimisé d'une session de batch cooking. */
+  async planBatch(
+    items: BatchRecipe[], selections: BatchSelection[],
+    options: { signal?: AbortSignal; onReceive?: (chars: number) => void } = {},
+  ): Promise<BatchPlan> {
+    this.mediaIsVideo = false;
+    this.onReceive = options.onReceive;
+    const parts: Part[] = [{ text: `Recettes de la session :\n${JSON.stringify(batchPayload(items))}` }];
+    let lastError: InvalidBatchPlan | null = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const { text } = await this.generate(parts, options.signal, BATCH);
+      try {
+        return parseBatchPlan(text, items.length, selections, Date.now());
+      } catch (e) {
+        if (!(e instanceof InvalidBatchPlan)) throw e;
+        lastError = e;
+      }
+    }
+    throw new ExtractionError('reponse_invalide', `Déroulé de l'IA inexploitable : ${lastError?.message ?? ''}`);
   }
 
   /** Si Google refuse le modèle en suggérant un remplaçant, bascule une fois dessus. */

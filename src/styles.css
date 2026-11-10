@@ -140,7 +140,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(5, 1fr);
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); padding: 4px env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: rgb(255 247 236 / 94%); border-top: 1px solid var(--bord);
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
@@ -373,3 +373,15 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .nutrition-fields { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 10px; }
 .nutrition-fields legend { font-weight: 700; margin-bottom: 6px; padding: 0; }
+
+/* ---------- V2-J2b : session de batch cooking ---------- */
+.recipe-badge { display: inline-block; border-radius: 99px; padding: 3px 11px; font-size: 14px; font-weight: 700; line-height: 1.35; }
+.batch-row { gap: 8px; }
+.batch-title { text-decoration: none; min-width: 0; }
+.batch-title .recipe-badge { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+.batch-steps { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 14px; }
+.batch-steps li p { margin: 4px 0 0; }
+.batch-step-badges, .cook-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.cook-badges .recipe-badge { font-size: 16px; padding: 4px 12px; }
+.sheet-group { font-size: 16px; margin: 14px 0 2px; color: var(--terracotta-fonce); }
+.batch-recap { padding: 0; list-style: none; }

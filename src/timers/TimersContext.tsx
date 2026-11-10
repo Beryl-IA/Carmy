@@ -12,6 +12,9 @@ import { navigate } from '../router';
 
 const STORAGE_KEY = 'carmy.timers';
 
+/** Identifiant des minuteurs lancés depuis une session de batch cooking (V2-J2b). */
+export const BATCH_TIMER_ID = 'batch';
+
 interface TimersApi {
   timers: Timer[];
   now: number;
@@ -158,7 +161,7 @@ export function TimerDock() {
           key={t.id}
           type="button"
           class={`dock-pill ${t.state}`}
-          onClick={() => navigate({ name: 'cuisine', id: t.recipeId, step: t.stepIndex })}
+          onClick={() => navigate(t.recipeId === BATCH_TIMER_ID ? { name: 'batch-cuisine', step: t.stepIndex } : { name: 'cuisine', id: t.recipeId, step: t.stepIndex })}
         >
           ⏱ {formatClock(remainingMs(t, now))}
           <span>{t.state === 'paused' ? 'en pause' : t.recipeTitle}</span>

@@ -51,6 +51,17 @@ export function HelpPage() {
       </section>
 
       <section class="card stack">
+        <h2>Batch cooking</h2>
+        <ul>
+          <li>Onglet <strong>Batch</strong> : choisis 2 à 6 recettes et le nombre de portions de chacune.</li>
+          <li><strong>🛒 Ajouter aux courses</strong> met toutes les recettes de la session dans ta liste, ingrédients fusionnés.</li>
+          <li><strong>✨ Optimiser avec l'IA</strong> construit un déroulé unique : cuissons longues d'abord, découpes regroupées, préparations pendant que ça cuit. Chaque étape indique les recettes concernées (pastilles de couleur). Sans clé ou hors-ligne, le <strong>déroulé simple</strong> enchaîne les recettes l'une après l'autre.</li>
+          <li><strong>Commencer la session</strong> ouvre le mode cuisine du déroulé (minuteurs, 🧺 ingrédients par recette). Tu peux quitter et reprendre où tu en étais.</li>
+          <li>À la fin, <strong>Terminer</strong> affiche jusqu'à quand garder chaque plat au frigo et au congélateur.</li>
+        </ul>
+      </section>
+
+      <section class="card stack">
         <h2>Conservation et nutrition</h2>
         <ul>
           <li>Chaque fiche indique combien de temps garder le plat cuisiné au <strong>frigo</strong> et au <strong>congélateur</strong> (en boîte hermétique), et ses <strong>valeurs nutritionnelles pour 1 portion</strong>.</li>

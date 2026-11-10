@@ -1,10 +1,10 @@
 // Onglet Courses (F6) : recettes choisies, liste fusionnée par rayon, garde-manger, cases, ajout manuel.
 import { ingredientIcon } from '../model/icons';
+import { RecipePicker } from '../components/RecipePicker';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { listRecipes, loadPantry, loadShopping, saveShopping } from '../db/db';
 import { AISLE_LABELS, formatQuantity, formatUnit } from '../format';
 import { parseQuantity } from '../model/draft';
-import { normalizeText } from '../model/search';
 import { buildShoppingList, type ShoppingLine } from '../model/shopping';
 import { AISLES, UNITS, type Aisle, type PantryItem, type Recipe, type ShoppingState, type Unit } from '../model/types';
 
@@ -281,39 +281,5 @@ function ManualItemForm({ onAdd }: { onAdd: (item: ShoppingState['manualItems'][
         <button type="submit" class="btn grow" disabled={!name.trim()}>Ajouter</button>
       </div>
     </form>
-  );
-}
-
-function RecipePicker({ recipes, onPick, onClose }: { recipes: Recipe[]; onPick: (id: string) => void; onClose: () => void }) {
-  const [q, setQ] = useState('');
-  const shown = useMemo(() => {
-    const n = normalizeText(q);
-    return n ? recipes.filter((r) => normalizeText(r.title).includes(n)) : recipes;
-  }, [recipes, q]);
-  return (
-    <div class="sheet-backdrop" onClick={onClose}>
-      <section class="sheet" role="dialog" aria-modal="true" aria-label="Choisir des recettes" onClick={(e) => e.stopPropagation()}>
-        <div class="row between nowrap">
-          <h2 class="card-title">Choisir des recettes</h2>
-          <button type="button" class="cook-icon" aria-label="Fermer" onClick={onClose}>✕</button>
-        </div>
-        {recipes.length > 6 && (
-          <input type="search" class="sheet-search" placeholder="Rechercher" aria-label="Rechercher une recette" value={q} onInput={(e) => setQ(e.currentTarget.value)} />
-        )}
-        {shown.length === 0 ? (
-          <p class="muted">{recipes.length ? 'Aucune recette ne correspond.' : 'Toutes tes recettes sont déjà dans la liste.'}</p>
-        ) : (
-          <ul class="list flush">
-            {shown.map((r) => (
-              <li key={r.id}>
-                <span class="grow ellipsis">{r.title}</span>
-                <button type="button" class="btn small" onClick={() => onPick(r.id)}>Ajouter</button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <button type="button" class="btn secondary" onClick={onClose}>Terminé</button>
-      </section>
-    </div>
   );
 }

@@ -5,6 +5,7 @@ import {
   type ShoppingState,
 } from '../model/types';
 import type { AppData } from '../model/backup';
+import type { BatchSession } from '../model/batch';
 
 const DB_NAME = 'carmy';
 const DB_VERSION = 1;
@@ -201,6 +202,21 @@ export async function addToShopping(recipeId: string, servings: number): Promise
   // Nouvelle recette = nouvelles courses : les lignes retirées réapparaissent.
   await saveShopping({ ...s, selections, removedKeys: existing ? s.removedKeys : [] });
   return Boolean(existing);
+}
+
+// ---------- Session de batch cooking (V2-J2b) ----------
+
+const BATCH_KEY = 'batch';
+
+/** Session en cours (une seule à la fois). */
+export async function loadBatch(): Promise<BatchSession | null> {
+  return ((await (await getDb()).get('kv', BATCH_KEY)) as BatchSession | undefined) ?? null;
+}
+
+export async function saveBatch(session: BatchSession | null): Promise<void> {
+  const db = await getDb();
+  if (session) await db.put('kv', session, BATCH_KEY);
+  else await db.delete('kv', BATCH_KEY);
 }
 
 // ---------- File d'attente d'extraction (F7) ----------
