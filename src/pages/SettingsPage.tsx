@@ -1,3 +1,4 @@
+import { BackupCard } from '../components/BackupCard';
 import { PantryEditor } from '../components/PantryEditor';
 import { SettingsCard } from '../components/SettingsCard';
 import { APP_NAME } from '../config';
@@ -7,9 +8,15 @@ interface Props {
   settings: Settings;
   onChange: (s: Settings) => void;
   persisted: boolean | null;
+  /** Réglages modifiés hors de cette page (export, import) : à recharger. */
+  onSettings: (s: Settings) => void;
+  onImported: () => void;
 }
 
-export function SettingsPage({ settings, onChange, persisted }: Props) {
+const isStandalone = () =>
+  window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+export function SettingsPage({ settings, onChange, persisted, onSettings, onImported }: Props) {
   const setServings = (n: number) => onChange({ ...settings, defaultServings: Math.min(20, Math.max(1, n)) });
   return (
     <main class="page stack">
@@ -18,6 +25,15 @@ export function SettingsPage({ settings, onChange, persisted }: Props) {
       </header>
 
       <SettingsCard settings={settings} onChange={onChange} />
+      <details class="card help">
+        <summary>Comment obtenir une clé API gratuite ?</summary>
+        <ol class="steps-help small">
+          <li>Ouvre <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">aistudio.google.com/apikey</a> et connecte-toi avec un compte Google.</li>
+          <li>Touche « Create API key », puis copie la clé.</li>
+          <li>Colle-la ci-dessus, touche « Tester la clé » et choisis un modèle Flash (ex. : flash-lite).</li>
+          <li>La clé reste sur cet iPhone et n'est jamais incluse dans les sauvegardes. Un abonnement Gemini grand public ne s'applique pas à l'API.</li>
+        </ol>
+      </details>
 
       <section class="card stack">
         <h2 class="card-title">Recettes</h2>
@@ -34,6 +50,22 @@ export function SettingsPage({ settings, onChange, persisted }: Props) {
 
       <PantryEditor />
 
+      <BackupCard settings={settings} onSettings={onSettings} onImported={onImported} />
+
+      <section class="card stack">
+        <h2 class="card-title">Installer sur l'écran d'accueil</h2>
+        {isStandalone() ? (
+          <p class="ok small">✓ {APP_NAME} est installée : elle s'ouvre en plein écran et fonctionne hors-ligne.</p>
+        ) : (
+          <ol class="steps-help small">
+            <li>Ouvre cette page dans <strong>Safari</strong>.</li>
+            <li>Touche le bouton <strong>Partager</strong> (carré avec une flèche vers le haut).</li>
+            <li>Choisis <strong>Sur l'écran d'accueil</strong>, puis <strong>Ajouter</strong>.</li>
+            <li>Ouvre {APP_NAME} depuis sa nouvelle icône.</li>
+          </ol>
+        )}
+      </section>
+
       <section class="card stack">
         <h2 class="card-title">Stockage</h2>
         <p class="small">
@@ -41,7 +73,6 @@ export function SettingsPage({ settings, onChange, persisted }: Props) {
           {persisted === true && 'Le stockage est protégé contre l\'effacement automatique.'}
           {persisted === false && 'Le navigateur n\'a pas garanti la conservation des données : installe l\'appli sur l\'écran d\'accueil.'}
         </p>
-        <p class="muted small">L'export et l'import de sauvegarde arrivent au jalon 6.</p>
       </section>
 
       <p class="muted small center">{APP_NAME} v{__APP_VERSION__}</p>

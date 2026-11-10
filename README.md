@@ -2,7 +2,7 @@
 
 Appli personnelle (PWA pour iPhone) qui transforme une vidéo de recette en fiche structurée, puis en liste de courses. Cahier des charges : [`docs/cahier-des-charges-carmy.md`](docs/cahier-des-charges-carmy.md).
 
-**État : jalons J0 à J5 livrés** (PWA installable, extraction Gemini, relecture et enregistrement local, bibliothèque avec recherche, tags, collections et portions, mode cuisine avec minuteurs, liste de courses fusionnée par rayon avec garde-manger).
+**État : jalons J0 à J6 livrés** (PWA installable, extraction Gemini, relecture et enregistrement local, bibliothèque avec recherche, tags, collections et portions, mode cuisine avec minuteurs, liste de courses fusionnée par rayon avec garde-manger, file d'attente des extractions, sauvegarde et restauration).
 
 ## Lancer en local
 
@@ -32,6 +32,10 @@ Safari → ouvrir l'adresse de l'appli → bouton **Partager** → **Sur l'écra
 3. La clé est stockée uniquement sur l'appareil. Ne jamais la committer.
 
 L'abonnement grand public Gemini (Google AI Pro/Ultra) ne s'applique pas à l'API : la clé AI Studio reste sur l'offre gratuite de l'API tant que la facturation n'est pas activée sur son projet.
+
+## Sauvegarde
+
+Réglages › Sauvegarde › **Exporter** : un fichier `carmy-sauvegarde-AAAA-MM-JJ.json` (recettes avec miniatures, collections, garde-manger, réglages, liste de courses — jamais la clé API) à ranger dans Fichiers ou iCloud Drive. **Importer** propose « Fusionner » ou « Remplacer » après un aperçu. Un rappel s'affiche après 14 jours sans sauvegarde ou plus de 10 nouvelles recettes.
 
 ## Bilan du jalon 1 (09/11/2026)
 

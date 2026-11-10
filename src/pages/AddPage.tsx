@@ -1,13 +1,13 @@
 // Onglet Ajouter (F1) : vidéo, texte collé ou saisie manuelle → relecture (F3) → enregistrement.
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { RecipeEditor } from '../components/RecipeEditor';
-import { listRecipes, saveRecipe } from '../db/db';
+import { addToQueue, deleteQueueJob, listQueue, listRecipes, saveRecipe, updateQueueJob } from '../db/db';
 import { GeminiProvider, INLINE_MAX_BYTES } from '../extraction/gemini';
 import { ExtractionError, type ExtractionPhase, type ExtractionReport } from '../extraction/types';
 import { formatBytes, formatDuration } from '../format';
 import { extractThumbnail, videoDuration } from '../media/thumbnail';
 import { draftFromExtracted, draftToRecipe, emptyDraft, type RecipeDraft } from '../model/draft';
-import type { Settings, SourceType } from '../model/types';
+import { QUEUE_MAX, type QueueJob, type Settings, type SourceType } from '../model/types';
 import { navigate } from '../router';
 
 const PHASE_LABELS: Record<ExtractionPhase, string> = {
@@ -22,7 +22,8 @@ type Mode = 'video' | 'text' | 'manual';
 type Stage =
   | { kind: 'input' }
   | { kind: 'running'; phase: ExtractionPhase; chars?: number }
-  | { kind: 'error'; error: ExtractionError }
+  /** queued : la vidéo a été gardée dans la file d'attente (ou la file est pleine). */
+  | { kind: 'error'; error: ExtractionError; queued?: 'oui' | 'pleine' }
   | { kind: 'norecipe' }
   | { kind: 'review'; draft: RecipeDraft; report?: ExtractionReport };
 
@@ -31,9 +32,11 @@ const newId = () => (crypto.randomUUID ? crypto.randomUUID() : `r${Date.now().to
 interface Props {
   settings: Settings;
   onSaved: () => void;
+  /** Nombre de vidéos en file d'attente (pastille de l'onglet). */
+  onQueueChange?: (count: number) => void;
 }
 
-export function AddPage({ settings, onSaved }: Props) {
+export function AddPage({ settings, onSaved, onQueueChange }: Props) {
   const [mode, setMode] = useState<Mode>('video');
   const [stage, setStage] = useState<Stage>({ kind: 'input' });
   const [file, setFile] = useState<File | null>(null);
@@ -49,6 +52,9 @@ export function AddPage({ settings, onSaved }: Props) {
   const [startedAt, setStartedAt] = useState(0);
   const [now, setNow] = useState(Date.now());
   const [wentBackground, setWentBackground] = useState(false);
+  const [queue, setQueue] = useState<QueueJob[]>([]);
+  /** Vidéo de la file d'attente liée à l'extraction en cours. */
+  const [jobId, setJobId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -79,6 +85,13 @@ export function AddPage({ settings, onSaved }: Props) {
 
   useEffect(() => () => { if (thumbUrl) URL.revokeObjectURL(thumbUrl); }, [thumbUrl]);
 
+  async function refreshQueue() {
+    const q = await listQueue();
+    setQueue(q);
+    onQueueChange?.(q.length);
+  }
+  useEffect(() => void refreshQueue(), []);
+
   // Tags existants proposés en suggestion pendant la relecture.
   useEffect(() => {
     if (stage.kind !== 'review') return;
@@ -87,6 +100,7 @@ export function AddPage({ settings, onSaved }: Props) {
 
   async function onPick(f: File | null) {
     setFile(f);
+    setJobId(null);
     setStage({ kind: 'input' });
     setDuration(null);
     setThumb(null);
@@ -98,10 +112,35 @@ export function AddPage({ settings, onSaved }: Props) {
     setThumbUrl(t ? URL.createObjectURL(t) : null);
   }
 
-  async function extract() {
-    const input = mode === 'video' ? (file ? { kind: 'video' as const, file, fileName: file.name } : null)
+  /** Prépare la page pour relancer une vidéo de la file, puis lance l'extraction. */
+  function retryJob(job: QueueJob) {
+    setMode('video');
+    setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setJobId(job.id);
+    setThumb(job.thumbnail ?? null);
+    setThumbUrl(job.thumbnail ? URL.createObjectURL(job.thumbnail) : null);
+    setDuration(null);
+    setSourceUrl(job.sourceUrl ?? '');
+    void extract(job);
+  }
+
+  async function removeJob(job: QueueJob) {
+    if (!confirm('Retirer cette vidéo de la file d\'attente ?')) return;
+    await deleteQueueJob(job.id);
+    if (job.id === jobId) resetAll();
+    await refreshQueue();
+  }
+
+  async function extract(fromJob?: QueueJob) {
+    const job = fromJob ?? (jobId ? queue.find((j) => j.id === jobId) : undefined);
+    const input = job
+      ? { kind: 'video' as const, file: job.blob, fileName: job.fileName }
+      : mode === 'video' ? (file ? { kind: 'video' as const, file, fileName: file.name } : null)
       : text.trim() ? { kind: 'text' as const, text: text.trim() } : null;
     if (!input) return;
+    const url = job ? job.sourceUrl ?? '' : sourceUrl;
+    const thumbnail = job ? job.thumbnail : thumb ?? undefined;
     const controller = new AbortController();
     abortRef.current = controller;
     setWentBackground(false);
@@ -126,11 +165,32 @@ export function AddPage({ settings, onSaved }: Props) {
       setStage({
         kind: 'review',
         report,
-        draft: draftFromExtracted(report.recipe, { type, url: sourceUrl.trim() || undefined, thumbnail: type === 'video' ? thumb ?? undefined : undefined }),
+        draft: draftFromExtracted(report.recipe, { type, url: url.trim() || undefined, thumbnail: type === 'video' ? thumbnail : undefined }),
       });
     } catch (e) {
       const error = e instanceof ExtractionError ? e : new ExtractionError('api', 'Erreur inattendue.', String(e));
-      setStage(error.kind === 'annule' ? { kind: 'input' } : { kind: 'error', error });
+      if (error.kind === 'annule') {
+        setStage({ kind: 'input' });
+        return;
+      }
+      // F7 : une vidéo en échec est gardée pour être relancée plus tard sans la réimporter.
+      let queued: 'oui' | 'pleine' | undefined;
+      if (input.kind === 'video') {
+        if (job) {
+          await updateQueueJob(job.id, { status: 'error', error: error.message, attempts: job.attempts + 1 });
+          queued = 'oui';
+        } else {
+          const id = newId();
+          const ok = await addToQueue({
+            id, kind: 'video', blob: input.file, fileName: input.fileName, status: 'error', error: error.message, attempts: 1,
+            createdAt: Date.now(), ...(url.trim() ? { sourceUrl: url.trim() } : {}), ...(thumbnail ? { thumbnail } : {}),
+          });
+          if (ok) setJobId(id);
+          queued = ok ? 'oui' : 'pleine';
+        }
+        await refreshQueue();
+      }
+      setStage({ kind: 'error', error, ...(queued ? { queued } : {}) });
     } finally {
       abortRef.current = null;
     }
@@ -146,6 +206,7 @@ export function AddPage({ settings, onSaved }: Props) {
 
   function resetAll() {
     setStage({ kind: 'input' });
+    setJobId(null);
     setFile(null);
     setThumb(null);
     setThumbUrl(null);
@@ -165,6 +226,11 @@ export function AddPage({ settings, onSaved }: Props) {
     setSaving(true);
     try {
       await saveRecipe(result.recipe);
+      // F7 : la vidéo quitte la file dès que la recette est validée.
+      if (jobId) {
+        await deleteQueueJob(jobId);
+        await refreshQueue();
+      }
       // La vidéo n'est jamais conservée (F1.5) : on lâche toutes les références.
       resetAll();
       onSaved();
@@ -234,7 +300,7 @@ export function AddPage({ settings, onSaved }: Props) {
             <label class={`picker ${file ? 'has-file' : ''}`}>
               <input ref={fileInputRef} type="file" accept="video/*" disabled={running} onChange={(e) => void onPick(e.currentTarget.files?.[0] ?? null)} />
               {thumbUrl ? <img src={thumbUrl} alt="Miniature de la vidéo" /> : <span class="picker-icon" aria-hidden="true">🎬</span>}
-              <span>{file ? 'Changer de vidéo' : 'Choisir une vidéo (Photos ou Fichiers)'}</span>
+              <span>{file || jobId ? 'Changer de vidéo' : 'Choisir une vidéo (Photos ou Fichiers)'}</span>
             </label>
             {file && (
               <p class="muted small">
@@ -306,7 +372,7 @@ export function AddPage({ settings, onSaved }: Props) {
             <button
               type="button"
               class="btn"
-              disabled={!aiReady || !online || (mode === 'video' ? !file : !text.trim())}
+              disabled={!aiReady || !online || (mode === 'video' ? !file && !jobId : !text.trim())}
               onClick={() => void extract()}
             >
               Extraire la recette
@@ -315,10 +381,35 @@ export function AddPage({ settings, onSaved }: Props) {
         )}
       </section>
 
+      {queue.length > 0 && (
+        <section class="card stack queue">
+          <h2 class="card-title">En attente ({queue.length}/{QUEUE_MAX})</h2>
+          <p class="muted small">Vidéos dont l'extraction a échoué. Relance-les quand le quota gratuit est revenu ou que le réseau est meilleur.</p>
+          <ul class="list flush">
+            {queue.map((job) => (
+              <QueueRow
+                key={job.id}
+                job={job}
+                current={job.id === jobId}
+                disabled={running || !aiReady || !online}
+                onRetry={() => retryJob(job)}
+                onDelete={() => void removeJob(job)}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+
       {stage.kind === 'error' && (
         <section class="card error-card" role="alert">
           <h2 class="card-title">Échec de l'extraction</h2>
           <p>{stage.error.message}</p>
+          {stage.queued === 'oui' && (
+            <p class="ok small">La vidéo est gardée dans la file d'attente : tu pourras la relancer plus tard sans la réimporter.</p>
+          )}
+          {stage.queued === 'pleine' && (
+            <p class="warn-text small">File d'attente pleine ({QUEUE_MAX} vidéos) : la vidéo n'a pas été gardée. Supprime une vidéo en attente pour faire de la place.</p>
+          )}
           {stage.error.durationsMs && Object.keys(stage.error.durationsMs).length > 0 && (
             <p class="muted small">
               {Object.entries(stage.error.durationsMs)
@@ -360,6 +451,28 @@ export function AddPage({ settings, onSaved }: Props) {
         </section>
       )}
     </main>
+  );
+}
+
+function QueueRow({ job, current, disabled, onRetry, onDelete }: {
+  job: QueueJob; current: boolean; disabled: boolean; onRetry: () => void; onDelete: () => void;
+}) {
+  const url = useMemo(() => (job.thumbnail ? URL.createObjectURL(job.thumbnail) : null), [job.thumbnail]);
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  const date = new Date(job.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return (
+    <li class={`queue-row ${current ? 'current' : ''}`}>
+      {url ? <img src={url} alt="" /> : <span class="queue-thumb" aria-hidden="true">🎬</span>}
+      <span class="grow queue-info">
+        <span class="small">{formatBytes(job.blob.size)} · {date}</span>
+        {job.error && <span class="error small">{job.error}</span>}
+        <span class="muted small">{job.attempts} essai{job.attempts > 1 ? 's' : ''}</span>
+      </span>
+      <span class="queue-actions">
+        <button type="button" class="btn small" disabled={disabled} onClick={onRetry}>Relancer</button>
+        <button type="button" class="icon-btn danger" aria-label="Retirer de la file d'attente" onClick={onDelete}>✕</button>
+      </span>
+    </li>
   );
 }
 

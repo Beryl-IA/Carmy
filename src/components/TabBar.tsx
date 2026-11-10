@@ -14,7 +14,7 @@ const ICONS: Record<Tab, JSX.Element> = {
 
 const LABELS: Record<Tab, string> = { recettes: 'Recettes', ajouter: 'Ajouter', courses: 'Courses', reglages: 'Réglages' };
 
-export function TabBar({ active }: { active: Tab }) {
+export function TabBar({ active, badges = {} }: { active: Tab; badges?: Partial<Record<Tab, number>> }) {
   return (
     <nav class="tabbar" aria-label="Navigation principale">
       {(Object.keys(LABELS) as Tab[]).map((t) => (
@@ -23,6 +23,7 @@ export function TabBar({ active }: { active: Tab }) {
             {ICONS[t]}
           </svg>
           <span>{LABELS[t]}</span>
+          {badges[t] ? <span class="tab-badge" aria-label={`${badges[t]} en attente`}>{badges[t]}</span> : null}
         </a>
       ))}
     </nav>

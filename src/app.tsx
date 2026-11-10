@@ -24,6 +24,12 @@ export function App() {
   /** Incrémenté après chaque enregistrement pour rafraîchir la bibliothèque. */
   const [dataVersion, setDataVersion] = useState(0);
   const bump = () => setDataVersion((v) => v + 1);
+  const [queueCount, setQueueCount] = useState(0);
+  /** Après un import : toutes les données ont pu changer. */
+  const reloadAll = () => {
+    void loadSettings().then(setSettings);
+    bump();
+  };
   /** Filtres de la bibliothèque, conservés quand on ouvre une fiche puis revient. */
   const [filter, setFilter] = useState<RecipeFilter>(EMPTY_FILTER);
 
@@ -52,19 +58,21 @@ export function App() {
       {!cooking && <UpdateBanner />}
       {/* La page Ajouter reste montée pour ne pas perdre une extraction ou une relecture en cours. */}
       <div hidden={tab !== 'ajouter'}>
-        <AddPage settings={settings} onSaved={bump} />
+        <AddPage settings={settings} onSaved={bump} onQueueChange={setQueueCount} />
       </div>
-      {route.name === 'recettes' && <RecipesPage version={dataVersion} filter={filter} onFilter={setFilter} />}
+      {route.name === 'recettes' && (
+        <RecipesPage version={dataVersion} filter={filter} onFilter={setFilter} settings={settings} onSettings={setSettings} onSnooze={updateSettings} />
+      )}
       {route.name === 'recette' && <RecipePage id={route.id} version={dataVersion} defaultServings={settings.defaultServings} onChanged={bump} />}
       {route.name === 'modifier' && <EditPage id={route.id} onSaved={bump} />}
       {route.name === 'collections' && <CollectionsPage onChanged={bump} />}
       {route.name === 'courses' && <ShoppingPage defaultServings={settings.defaultServings} />}
-      {route.name === 'reglages' && <SettingsPage settings={settings} onChange={updateSettings} persisted={persisted} />}
+      {route.name === 'reglages' && <SettingsPage settings={settings} onChange={updateSettings} persisted={persisted} onSettings={setSettings} onImported={reloadAll} />}
       {route.name === 'cuisine' && (
         <CookPage key={route.id} id={route.id} step={route.step} servings={route.servings} defaultServings={settings.defaultServings} navToken={route} />
       )}
       {!cooking && <TimerDock />}
-      {!cooking && <TabBar active={tab} />}
+      {!cooking && <TabBar active={tab} badges={{ ajouter: queueCount }} />}
     </div>
     </TimersProvider>
   );

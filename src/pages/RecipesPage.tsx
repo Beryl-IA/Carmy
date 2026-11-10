@@ -2,16 +2,23 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { APP_NAME } from '../config';
 import { listCollections, listRecipes } from '../db/db';
+import { useExport } from '../components/BackupCard';
+import { backupReminder } from '../model/backup';
 import { filterRecipes, tagsByFrequency, type RecipeFilter } from '../model/search';
-import type { Collection, Recipe } from '../model/types';
+import type { Collection, Recipe, Settings } from '../model/types';
 
 interface Props {
   version: number;
   filter: RecipeFilter;
   onFilter: (f: RecipeFilter) => void;
+  settings: Settings;
+  /** Réglages mis à jour par un export. */
+  onSettings: (s: Settings) => void;
+  /** Report du rappel (enregistré). */
+  onSnooze: (s: Settings) => void;
 }
 
-export function RecipesPage({ version, filter, onFilter }: Props) {
+export function RecipesPage({ version, filter, onFilter, settings, onSettings, onSnooze }: Props) {
   const [recipes, setRecipes] = useState<Recipe[] | null>(null);
   const [collections, setCollections] = useState<Collection[]>([]);
 
@@ -26,6 +33,7 @@ export function RecipesPage({ version, filter, onFilter }: Props) {
       onFilter({ ...filter, collectionId: null });
   }, [collections]);
 
+  const reminder = recipes ? backupReminder(settings, recipes.length, Date.now()) : null;
   const tags = useMemo(() => tagsByFrequency(recipes ?? []), [recipes]);
   const results = useMemo(() => filterRecipes(recipes ?? [], filter), [recipes, filter]);
   const filtering = Boolean(filter.query.trim() || filter.tags.length || filter.collectionId);
@@ -39,6 +47,16 @@ export function RecipesPage({ version, filter, onFilter }: Props) {
         <h1>{APP_NAME}</h1>
         {recipes && recipes.length > 0 && <span class="muted count">{recipes.length} recette{recipes.length > 1 ? 's' : ''}</span>}
       </header>
+
+      {reminder && (
+        <BackupReminder
+          text={reminder.reason === 'recettes'
+            ? `${reminder.count} recettes ajoutées depuis ta dernière sauvegarde.`
+            : settings.lastBackupAt ? `Aucune sauvegarde depuis ${reminder.count} jours.` : 'Tu n\'as encore jamais sauvegardé tes recettes.'}
+          onSettings={onSettings}
+          onLater={() => onSnooze({ ...settings, backupSnoozeUntil: Date.now() + 3 * 86_400_000 })}
+        />
+      )}
 
       {recipes === null ? null : recipes.length === 0 ? (
         <section class="card empty">
@@ -104,6 +122,22 @@ export function RecipesPage({ version, filter, onFilter }: Props) {
         </>
       )}
     </main>
+  );
+}
+
+function BackupReminder({ text, onSettings, onLater }: { text: string; onSettings: (s: Settings) => void; onLater: () => void }) {
+  const exp = useExport(onSettings);
+  return (
+    <section class="backup-banner" role="status">
+      <span><strong>💾 Pense à sauvegarder.</strong> {text} Tes recettes ne sont que sur cet iPhone.</span>
+      {exp.message && <span class={exp.message.ok ? 'ok small' : 'error small'}>{exp.message.text}</span>}
+      <div class="row">
+        <button type="button" class="btn small ghost" onClick={onLater}>Plus tard</button>
+        <button type="button" class="btn small grow" disabled={exp.busy} onClick={() => void exp.run()}>
+          {exp.busy ? 'Préparation…' : exp.pending ? 'Partager la sauvegarde' : 'Sauvegarder maintenant'}
+        </button>
+      </div>
+    </section>
   );
 }
 
