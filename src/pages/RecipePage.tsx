@@ -1,7 +1,7 @@
 // Fiche détail (F4) : portions ajustables, collections, modifier, supprimer.
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { RecipeView } from '../components/RecipeView';
-import { deleteRecipe, getRecipe, listCollections, saveCollection, setRecipeInCollection } from '../db/db';
+import { addToShopping, deleteRecipe, getRecipe, listCollections, loadShopping, saveCollection, setRecipeInCollection } from '../db/db';
 import { scaleIngredients } from '../model/scale';
 import type { Collection, Recipe } from '../model/types';
 import { navigate } from '../router';
@@ -17,10 +17,13 @@ export function RecipePage({ id, version, defaultServings, onChanged }: Props) {
   const [recipe, setRecipe] = useState<Recipe | null | undefined>(undefined);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [servings, setServings] = useState(defaultServings);
+  /** Portions de cette recette dans la liste de courses (null si absente). */
+  const [inList, setInList] = useState<number | null>(null);
 
   useEffect(() => {
     void getRecipe(id).then((r) => setRecipe(r ?? null));
     void listCollections().then(setCollections);
+    void loadShopping().then((s) => setInList(s.selections.find((x) => x.recipeId === id)?.servings ?? null));
   }, [id, version]);
 
   // Les portions ne se réinitialisent qu'en changeant de recette (pas en rangeant dans une collection).
@@ -48,6 +51,11 @@ export function RecipePage({ id, version, defaultServings, onChanged }: Props) {
     await saveCollection(c);
     setCollections(await listCollections());
     await toggleCollection(c, true);
+  }
+
+  async function addToList() {
+    await addToShopping(id, servings);
+    setInList(servings);
   }
 
   async function remove() {
@@ -82,6 +90,12 @@ export function RecipePage({ id, version, defaultServings, onChanged }: Props) {
                   Fiche d'origine : {recipe.servings} {recipe.servings > 1 ? 'portions' : 'portion'}
                 </button>
               )}
+            </div>
+            <div class="row nowrap">
+              <button type="button" class={`btn grow ${inList === servings ? 'secondary' : ''}`} disabled={inList === servings} onClick={() => void addToList()}>
+                {inList === null ? '🛒 Ajouter aux courses' : inList === servings ? `✓ Dans la liste (${inList} portion${inList > 1 ? 's' : ''})` : `🛒 Passer à ${servings} portion${servings > 1 ? 's' : ''} (liste : ${inList})`}
+              </button>
+              {inList !== null && <a class="btn ghost" href="#/courses">Voir</a>}
             </div>
             {recipe.steps.length > 0 && (
               <a class="btn cook-launch" href={`#/cuisine/${encodeURIComponent(recipe.id)}/0/${servings}`}>

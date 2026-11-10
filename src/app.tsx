@@ -58,7 +58,7 @@ export function App() {
       {route.name === 'recette' && <RecipePage id={route.id} version={dataVersion} defaultServings={settings.defaultServings} onChanged={bump} />}
       {route.name === 'modifier' && <EditPage id={route.id} onSaved={bump} />}
       {route.name === 'collections' && <CollectionsPage onChanged={bump} />}
-      {route.name === 'courses' && <ShoppingPage />}
+      {route.name === 'courses' && <ShoppingPage defaultServings={settings.defaultServings} />}
       {route.name === 'reglages' && <SettingsPage settings={settings} onChange={updateSettings} persisted={persisted} />}
       {route.name === 'cuisine' && (
         <CookPage key={route.id} id={route.id} step={route.step} servings={route.servings} defaultServings={settings.defaultServings} navToken={route} />

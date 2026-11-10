@@ -1,3 +1,4 @@
+import { PantryEditor } from '../components/PantryEditor';
 import { SettingsCard } from '../components/SettingsCard';
 import { APP_NAME } from '../config';
 import type { Settings } from '../model/types';
@@ -28,8 +29,10 @@ export function SettingsPage({ settings, onChange, persisted }: Props) {
             <button type="button" class="icon-btn" aria-label="Plus" onClick={() => setServings(settings.defaultServings + 1)}>+</button>
           </div>
         </div>
-        <p class="muted small">Nombre de portions affiché à l'ouverture d'une fiche (les quantités sont recalculées) et proposé pour la saisie à la main.</p>
+        <p class="muted small">Nombre de portions affiché à l'ouverture d'une fiche (les quantités sont recalculées), proposé pour la saisie à la main et pour les recettes ajoutées aux courses.</p>
       </section>
+
+      <PantryEditor />
 
       <section class="card stack">
         <h2 class="card-title">Stockage</h2>
