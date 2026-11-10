@@ -85,6 +85,24 @@ export interface PantryItem {
 
 export const DEFAULT_PANTRY: PantryItem[] = ['sel', 'poivre', 'huile', 'huile d\'olive', 'sucre', 'farine', 'eau'].map((name) => ({ name }));
 
+/** Vidéo en attente d'extraction (F7) : conservée tant que la recette n'est pas validée. */
+export interface QueueJob {
+  id: string;
+  kind: 'video';
+  blob: Blob;
+  sourceUrl?: string;
+  status: 'pending' | 'error';
+  error?: string;
+  attempts: number;
+  createdAt: number;
+  /** Ajouts au §7 : nom du fichier et miniature, pour reconnaître la vidéo dans la file. */
+  fileName?: string;
+  thumbnail?: Blob;
+}
+
+/** Nombre maximal de vidéos gardées en file d'attente (§11 : mémoire). */
+export const QUEUE_MAX = 5;
+
 export interface Settings {
   apiKey?: string;
   model: string;
@@ -94,6 +112,9 @@ export interface Settings {
   /** Ajouts au §7, issus du jalon 1 : analyse en basse résolution et test de la Files API. */
   fastMode: boolean;
   forceFilesApi: boolean;
+  /** Ajouts pour le rappel de sauvegarde (F8). */
+  firstLaunchAt?: number;
+  backupSnoozeUntil?: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

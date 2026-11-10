@@ -1,8 +1,10 @@
 // Stockage local IndexedDB (via `idb`). Aucune donnée ne quitte l'appareil.
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import {
-  DEFAULT_PANTRY, DEFAULT_SETTINGS, EMPTY_SHOPPING, type Collection, type PantryItem, type Recipe, type Settings, type ShoppingState,
+  DEFAULT_PANTRY, DEFAULT_SETTINGS, EMPTY_SHOPPING, QUEUE_MAX, type Collection, type PantryItem, type QueueJob, type Recipe, type Settings,
+  type ShoppingState,
 } from '../model/types';
+import type { AppData } from '../model/backup';
 
 const DB_NAME = 'carmy';
 const DB_VERSION = 1;
@@ -13,7 +15,7 @@ interface CarmyDB extends DBSchema {
   /** Petits objets uniques : réglages, état des courses, garde-manger… */
   kv: { key: string; value: unknown };
   /** File d'attente d'extraction (jalon 6), créée dès maintenant pour éviter une migration. */
-  queue: { key: string; value: { id: string; createdAt: number } & Record<string, unknown> };
+  queue: { key: string; value: QueueJob };
 }
 
 let dbPromise: Promise<IDBPDatabase<CarmyDB>> | null = null;
@@ -126,9 +128,16 @@ const LEGACY_KEY = 'carmy.settings.v0';
 export async function loadSettings(): Promise<Settings> {
   const db = await getDb();
   const stored = (await db.get('kv', SETTINGS_KEY)) as Partial<Settings> | undefined;
-  if (stored) return { ...DEFAULT_SETTINGS, ...stored };
+  if (stored) {
+    // Réglages antérieurs au jalon 6 : la date de premier lancement sert au rappel de sauvegarde.
+    if (!stored.firstLaunchAt) {
+      stored.firstLaunchAt = Date.now();
+      await db.put('kv', stored, SETTINGS_KEY);
+    }
+    return { ...DEFAULT_SETTINGS, ...stored };
+  }
 
-  let migrated: Settings = { ...DEFAULT_SETTINGS };
+  let migrated: Settings = { ...DEFAULT_SETTINGS, firstLaunchAt: Date.now() };
   try {
     const raw = globalThis.localStorage?.getItem(LEGACY_KEY);
     if (raw) {
@@ -192,6 +201,74 @@ export async function addToShopping(recipeId: string, servings: number): Promise
   // Nouvelle recette = nouvelles courses : les lignes retirées réapparaissent.
   await saveShopping({ ...s, selections, removedKeys: existing ? s.removedKeys : [] });
   return Boolean(existing);
+}
+
+// ---------- File d'attente d'extraction (F7) ----------
+
+export async function listQueue(): Promise<QueueJob[]> {
+  const all = await (await getDb()).getAll('queue');
+  return all.sort((a, b) => a.createdAt - b.createdAt);
+}
+
+/** Ajoute une vidéo à la file. Renvoie false si la file est pleine (QUEUE_MAX). */
+export async function addToQueue(job: QueueJob): Promise<boolean> {
+  const db = await getDb();
+  const tx = db.transaction('queue', 'readwrite');
+  if ((await tx.store.count()) >= QUEUE_MAX) {
+    await tx.done;
+    return false;
+  }
+  await tx.store.put(job);
+  await tx.done;
+  return true;
+}
+
+export async function updateQueueJob(id: string, patch: Partial<Omit<QueueJob, 'id' | 'blob'>>): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction('queue', 'readwrite');
+  const job = await tx.store.get(id);
+  if (job) await tx.store.put({ ...job, ...patch });
+  await tx.done;
+}
+
+export async function deleteQueueJob(id: string): Promise<void> {
+  await (await getDb()).delete('queue', id);
+}
+
+// ---------- Export / import (F8) ----------
+
+export async function exportAll(): Promise<AppData> {
+  const [recipes, collections, pantry, settings, shopping] = await Promise.all([
+    listRecipes(), listCollections(), loadPantry(), loadSettings(), loadShopping(),
+  ]);
+  const { apiKey: _secret, ...safe } = settings;
+  return { recipes, collections, pantry, settings: safe, shopping };
+}
+
+/** Remplace toutes les données (recettes, collections, garde-manger, réglages hors clé, courses). */
+export async function writeAll(data: AppData): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction(['recipes', 'collections', 'kv'], 'readwrite');
+  const current = (await tx.objectStore('kv').get(SETTINGS_KEY)) as Partial<Settings> | undefined;
+  await tx.objectStore('recipes').clear();
+  for (const r of data.recipes) await tx.objectStore('recipes').put(r);
+  await tx.objectStore('collections').clear();
+  for (const c of data.collections) await tx.objectStore('collections').put(c);
+  await tx.objectStore('kv').put(data.pantry, PANTRY_KEY);
+  await tx.objectStore('kv').put(data.shopping, SHOPPING_KEY);
+  // La clé API n'est jamais dans une sauvegarde : on garde celle de l'appareil.
+  await tx.objectStore('kv').put({ ...DEFAULT_SETTINGS, ...data.settings, ...(current?.apiKey ? { apiKey: current.apiKey } : {}) }, SETTINGS_KEY);
+  await tx.done;
+}
+
+/** Après un export réussi : remet à zéro le compteur du rappel. */
+export async function markBackupDone(at: number): Promise<Settings> {
+  const s = await loadSettings();
+  const next: Settings = { ...s, lastBackupAt: at, recipesSinceBackup: 0 };
+  delete next.backupSnoozeUntil;
+  const db = await getDb();
+  await db.put('kv', next, SETTINGS_KEY);
+  return next;
 }
 
 // ---------- Persistance du stockage (F8) ----------
