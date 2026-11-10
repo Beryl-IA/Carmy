@@ -223,3 +223,61 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .list { list-style: none; margin: 0; padding: 4px 16px; }
 .list li { display: flex; align-items: center; gap: 8px; min-height: 56px; border-bottom: 1px solid var(--bord); }
 .list li:last-child { border-bottom: 0; }
+
+/* ---------- Jalon 4 : mode cuisine, minuteurs ---------- */
+.app.cooking { padding: 0; max-width: none; }
+.cook-launch { width: 100%; }
+.btn.big { min-height: 64px; font-size: 20px; border-radius: 18px; }
+
+.cook {
+  min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; max-width: 720px; margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 12px) calc(env(safe-area-inset-left) + 16px);
+}
+.cook-top { display: flex; align-items: center; gap: 10px; }
+.cook-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cook-title > span:first-child { font-family: var(--serif); font-weight: 700; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cook-icon { flex: none; font: inherit; font-size: 22px; width: 52px; height: 52px; border-radius: 16px; border: 1.5px solid var(--bord); background: var(--carte); color: var(--brun); }
+.cook-progress { height: 6px; background: var(--bord); border-radius: 99px; margin: 12px 0 4px; overflow: hidden; }
+.cook-progress span { display: block; height: 100%; background: var(--terracotta); border-radius: 99px; transition: width 0.25s; }
+.cook-step { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 24px; padding: 16px 0; touch-action: pan-y; }
+.cook-text { font-size: clamp(24px, 6.4vw, 34px); line-height: 1.35; font-weight: 500; margin: 0; }
+.cook-timer { display: flex; justify-content: center; }
+.timer-start { width: 100%; background: var(--basilic); }
+.timer-start:active { background: #3E6741; }
+.timer-controls { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; padding: 16px; border-radius: var(--rayon); background: #E4EFE4; }
+.timer-controls.paused { background: #F6E6CF; }
+.timer-controls .clock { font-size: 56px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--basilic); line-height: 1; }
+.timer-controls.paused .clock { color: var(--brun-doux); }
+.other-timers { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.cook-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.dock-pill {
+  font: inherit; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 14px; border-radius: 99px; border: 0;
+  background: var(--basilic); color: #fff; font-weight: 700; font-variant-numeric: tabular-nums; box-shadow: 0 2px 10px rgb(59 42 32 / 18%);
+}
+.dock-pill span { font-weight: 500; font-size: 13px; opacity: 0.9; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dock-pill.paused { background: var(--brun-doux); }
+.timer-dock {
+  position: fixed; z-index: 9; left: 0; right: 0; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 8px);
+  display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 0 16px; pointer-events: none;
+}
+.timer-dock .dock-pill { pointer-events: auto; }
+
+.sheet-backdrop { position: fixed; inset: 0; z-index: 20; background: rgb(59 42 32 / 45%); display: flex; align-items: flex-end; }
+.sheet {
+  width: 100%; max-width: 720px; margin: 0 auto; max-height: 80vh; overflow: auto; background: var(--creme);
+  border-radius: 24px 24px 0 0; padding: 16px 16px calc(env(safe-area-inset-bottom) + 16px); display: flex; flex-direction: column; gap: 8px;
+}
+.sheet .ingredients li { font-size: 19px; }
+
+.alarm {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px;
+  background: var(--terracotta); animation: alarm-flash 1s steps(2, jump-none) infinite;
+}
+@keyframes alarm-flash { 50% { background: var(--safran); } }
+@media (prefers-reduced-motion: reduce) { .alarm { animation: none; } }
+.alarm-card { background: var(--creme); border-radius: 28px; padding: 28px 24px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 14px; text-align: center; box-shadow: 0 10px 40px rgb(0 0 0 / 25%); }
+.alarm-icon { font-size: 64px; line-height: 1; animation: alarm-shake 0.5s ease-in-out infinite; }
+@keyframes alarm-shake { 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
+.alarm-card h2 { font-size: 28px; color: var(--terracotta-fonce); }
+.alarm-card ul { list-style: none; margin: 0; padding: 0; font-size: 18px; }

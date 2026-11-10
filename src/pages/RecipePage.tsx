@@ -70,6 +70,7 @@ export function RecipePage({ id, version, defaultServings, onChanged }: Props) {
           thumbnailUrl={url}
           sourceUrl={recipe.sourceUrl}
           servingsNode={
+            <>
             <div class="servings">
               <div class="stepper" role="group" aria-label="Nombre de portions">
                 <button type="button" class="icon-btn" aria-label="Une portion de moins" disabled={servings <= 1} onClick={() => setServings(servings - 1)}>−</button>
@@ -82,6 +83,12 @@ export function RecipePage({ id, version, defaultServings, onChanged }: Props) {
                 </button>
               )}
             </div>
+            {recipe.steps.length > 0 && (
+              <a class="btn cook-launch" href={`#/cuisine/${encodeURIComponent(recipe.id)}/0/${servings}`}>
+                👩‍🍳 Mode cuisine
+              </a>
+            )}
+            </>
           }
         >
           <h3>Collections</h3>

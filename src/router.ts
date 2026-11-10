@@ -7,13 +7,26 @@ export type Route =
   | { name: 'recette'; id: string }
   | { name: 'modifier'; id: string }
   | { name: 'collections' }
+  /** Mode cuisine : étape (à partir de 0) et portions facultatives. */
+  | { name: 'cuisine'; id: string; step?: number; servings?: number }
   | { name: 'ajouter' }
   | { name: 'courses' }
   | { name: 'reglages' };
 
 export function parseHash(hash: string): Route {
-  const [, page = '', id = ''] = hash.replace(/^#/, '').split('/');
+  const [, page = '', id = '', stepRaw = '', servingsRaw = ''] = hash.replace(/^#/, '').split('/');
   switch (page) {
+    case 'cuisine': {
+      if (!id) return { name: 'recettes' };
+      const step = Number.parseInt(stepRaw, 10);
+      const servings = Number.parseInt(servingsRaw, 10);
+      return {
+        name: 'cuisine',
+        id: decodeURIComponent(id),
+        ...(step >= 0 ? { step } : {}),
+        ...(servings >= 1 ? { servings } : {}),
+      };
+    }
     case 'recette':
     case 'modifier':
       return id ? { name: page, id: decodeURIComponent(id) } : { name: 'recettes' };
@@ -28,16 +41,25 @@ export function parseHash(hash: string): Route {
 }
 
 export function routeToHash(r: Route): string {
+  if (r.name === 'cuisine') {
+    const tail = r.servings ? `/${r.step ?? 0}/${r.servings}` : r.step !== undefined ? `/${r.step}` : '';
+    return `#/cuisine/${encodeURIComponent(r.id)}${tail}`;
+  }
   return r.name === 'recette' || r.name === 'modifier' ? `#/${r.name}/${encodeURIComponent(r.id)}` : `#/${r.name}`;
 }
 
 export function tabOf(r: Route): Tab {
-  return r.name === 'recette' || r.name === 'modifier' || r.name === 'collections' ? 'recettes' : r.name;
+  return r.name === 'recette' || r.name === 'modifier' || r.name === 'collections' || r.name === 'cuisine' ? 'recettes' : r.name;
 }
 
 export function navigate(r: Route): void {
   const h = routeToHash(r);
   if (location.hash !== h) location.hash = h;
+}
+
+/** Met à jour l'adresse sans créer d'entrée d'historique ni déclencher de navigation. */
+export function replaceRoute(r: Route): void {
+  history.replaceState(history.state, '', routeToHash(r));
 }
 
 export function useRoute(): Route {

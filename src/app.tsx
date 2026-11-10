@@ -5,6 +5,8 @@ import type { Settings } from './model/types';
 import { EMPTY_FILTER, type RecipeFilter } from './model/search';
 import { AddPage } from './pages/AddPage';
 import { CollectionsPage } from './pages/CollectionsPage';
+import { CookPage } from './pages/CookPage';
+import { TimerDock, TimersProvider } from './timers/TimersContext';
 import { EditPage } from './pages/EditPage';
 import { RecipePage } from './pages/RecipePage';
 import { RecipesPage } from './pages/RecipesPage';
@@ -43,9 +45,11 @@ export function App() {
     );
   if (!settings) return <div class="app loading" aria-busy="true" />;
 
+  const cooking = route.name === 'cuisine';
   return (
-    <div class="app">
-      <UpdateBanner />
+    <TimersProvider cooking={cooking}>
+    <div class={`app ${cooking ? 'cooking' : ''}`}>
+      {!cooking && <UpdateBanner />}
       {/* La page Ajouter reste montée pour ne pas perdre une extraction ou une relecture en cours. */}
       <div hidden={tab !== 'ajouter'}>
         <AddPage settings={settings} onSaved={bump} />
@@ -56,7 +60,12 @@ export function App() {
       {route.name === 'collections' && <CollectionsPage onChanged={bump} />}
       {route.name === 'courses' && <ShoppingPage />}
       {route.name === 'reglages' && <SettingsPage settings={settings} onChange={updateSettings} persisted={persisted} />}
-      <TabBar active={tab} />
+      {route.name === 'cuisine' && (
+        <CookPage key={route.id} id={route.id} step={route.step} servings={route.servings} defaultServings={settings.defaultServings} navToken={route} />
+      )}
+      {!cooking && <TimerDock />}
+      {!cooking && <TabBar active={tab} />}
     </div>
+    </TimersProvider>
   );
 }

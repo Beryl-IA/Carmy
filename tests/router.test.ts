@@ -16,5 +16,11 @@ describe('router', () => {
     expect(parseHash('#/collections')).toEqual({ name: 'collections' });
     expect(routeToHash({ name: 'modifier', id: 'a' })).toBe('#/modifier/a');
     expect(tabOf({ name: 'collections' })).toBe('recettes');
+    expect(parseHash('#/cuisine/abc')).toEqual({ name: 'cuisine', id: 'abc' });
+    expect(parseHash('#/cuisine/abc/2/4')).toEqual({ name: 'cuisine', id: 'abc', step: 2, servings: 4 });
+    expect(parseHash('#/cuisine/abc/x/0')).toEqual({ name: 'cuisine', id: 'abc' });
+    expect(routeToHash({ name: 'cuisine', id: 'a', step: 3 })).toBe('#/cuisine/a/3');
+    expect(routeToHash({ name: 'cuisine', id: 'a', servings: 2 })).toBe('#/cuisine/a/0/2');
+    expect(parseHash(routeToHash({ name: 'cuisine', id: 'a b', step: 1, servings: 3 }))).toEqual({ name: 'cuisine', id: 'a b', step: 1, servings: 3 });
   });
 });
