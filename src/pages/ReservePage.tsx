@@ -1,6 +1,8 @@
-// Onglet Réserve (V2-J3) : plats cuisinés (portions, frigo/congélateur, dates limites) et produits achetés (quantités).
+// Réserve (V2-J3), affichée sous le planning de l'onglet Semaine (V2-J4) : plats cuisinés (portions,
+// frigo/congélateur, dates limites) et produits achetés (quantités).
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { listRecipes, loadDishes, loadPantry, loadStock, saveDishes, saveStock } from '../db/db';
+import { loadPantry, loadStock, saveStock } from '../db/db';
+import { plannedPortions, type PlannedMeal } from '../model/planning';
 import { AISLE_LABELS, formatQuantity, formatUnit } from '../format';
 import { numberToInput, parseQuantity } from '../model/draft';
 import { ingredientIcon } from '../model/icons';
@@ -24,29 +26,26 @@ function relDate(t: number, now: number): string {
 }
 const qty = (q: { quantity: number | null; unit: Unit }) => [formatQuantity(q.quantity), formatUnit(q.unit, q.quantity)].filter(Boolean).join(' ');
 
-export function ReservePage({ onChanged }: { onChanged: () => void }) {
-  const [dishes, setDishes] = useState<StoredDish[] | null>(null);
+interface Props {
+  dishes: StoredDish[];
+  recipes: Recipe[];
+  plan: PlannedMeal[];
+  onDishes: (next: StoredDish[]) => void;
+}
+
+export function ReserveSections({ dishes, recipes, plan, onDishes: updateDishes }: Props) {
   const [stock, setStock] = useState<StockItem[]>([]);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const now = Date.now();
 
   useEffect(() => {
-    void Promise.all([loadDishes(), loadStock(), listRecipes(), loadPantry()]).then(([d, s, r, p]) => {
-      setDishes(d);
+    void Promise.all([loadStock(), loadPantry()]).then(([s, p]) => {
       setStock(s);
-      setRecipes(r);
       setPantry(p);
     });
   }, []);
 
   const byId = useMemo(() => new Map(recipes.map((r) => [r.id, r])), [recipes]);
-  if (!dishes) return <main class="page" aria-busy="true" />;
-
-  const updateDishes = (next: StoredDish[]) => {
-    setDishes(next);
-    void saveDishes(next).then(onChanged);
-  };
   const updateStock = (next: StockItem[]) => {
     setStock(next);
     void saveStock(next);
@@ -76,6 +75,7 @@ export function ReservePage({ onChanged }: { onChanged: () => void }) {
           {d.recipeId && byId.has(d.recipeId) ? <a href={`#/recette/${encodeURIComponent(d.recipeId)}`}>{d.title}</a> : <span>{d.title}</span>}
           <span class="small">
             {d.portions} portion{d.portions > 1 ? 's' : ''}
+            {plannedPortions(plan, d.id) > 0 && ` (${plannedPortions(plan, d.id)} prévue${plannedPortions(plan, d.id) > 1 ? 's' : ''})`}
             {d.expiresAt !== null && (
               <span class={`dish-date st-${status}`}>
                 {' · '}
@@ -103,11 +103,8 @@ export function ReservePage({ onChanged }: { onChanged: () => void }) {
   };
 
   return (
-    <main class="page stack">
-      <header class="page-header">
-        <h1>Réserve</h1>
-      </header>
-
+    <>
+      <h2 class="section-title">Réserve</h2>
       <section class="card stack">
         <h2 class="card-title">🧊 Frigo {fridge.length > 0 && <span class="muted small">· {portions(fridge)} portion{portions(fridge) > 1 ? 's' : ''}</span>}</h2>
         {fridge.length ? <ul class="list flush">{fridge.map(dishRow)}</ul> : <p class="muted small">Aucun plat cuisiné au frigo.</p>}
@@ -152,7 +149,7 @@ export function ReservePage({ onChanged }: { onChanged: () => void }) {
           Basiques toujours à la maison (non décomptés) : {pantry.map((p) => p.name).join(', ')}. <a href="#/reglages">Modifier</a>
         </p>
       )}
-    </main>
+    </>
   );
 }
 

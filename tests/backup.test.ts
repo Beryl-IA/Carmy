@@ -90,7 +90,7 @@ describe('parseBackup', () => {
 
 describe('fusion', () => {
   const base = (recipes: Recipe[], extra: Partial<AppData> = {}): AppData => ({
-    recipes, collections: [], pantry: [], settings: { ...DEFAULT_SETTINGS, defaultServings: 1 }, shopping: EMPTY_SHOPPING, stock: [], dishes: [], ...extra,
+    recipes, collections: [], pantry: [], settings: { ...DEFAULT_SETTINGS, defaultServings: 1 }, shopping: EMPTY_SHOPPING, stock: [], dishes: [], planning: [], ...extra,
   });
   it('garde la version la plus récente de chaque recette et ajoute le reste', () => {
     const mine = base([recipe('a', 10, { title: 'mienne' }), recipe('b', 50, { title: 'b récente' })], {
@@ -165,7 +165,7 @@ describe('file d\'attente', () => {
   });
   it('n\'est pas incluse dans la sauvegarde', async () => {
     await addToQueue(job('j', 1));
-    expect(Object.keys(await exportAll()).sort()).toEqual(['collections', 'dishes', 'pantry', 'recipes', 'settings', 'shopping', 'stock']);
+    expect(Object.keys(await exportAll()).sort()).toEqual(['collections', 'dishes', 'pantry', 'planning', 'recipes', 'settings', 'shopping', 'stock']);
     expect((await loadPantry()).length).toBeGreaterThan(0);
     expect(await loadShopping()).toEqual(EMPTY_SHOPPING);
     expect(await listCollections()).toEqual([]);

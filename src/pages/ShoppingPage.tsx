@@ -200,7 +200,7 @@ export function ShoppingPage({ defaultServings }: { defaultServings: number }) {
       {!isEmpty || recipes.length > 0 ? <ManualItemForm onAdd={(item) => update({ ...state, manualItems: [...state.manualItems, item] })} /> : null}
 
       {stored > 0 && (
-        <p class="ok small center" role="status">✓ {stored} article{stored > 1 ? 's' : ''} rangé{stored > 1 ? 's' : ''} dans la <a href="#/reserve">réserve</a>.</p>
+        <p class="ok small center" role="status">✓ {stored} article{stored > 1 ? 's' : ''} rangé{stored > 1 ? 's' : ''} dans la <a href="#/semaine">réserve</a>.</p>
       )}
       {checkedCount > 0 && (
         <button type="button" class="btn" onClick={() => { setStored(0); setStoring(true); }}>🧺 Ranger les courses ({checkedCount})</button>

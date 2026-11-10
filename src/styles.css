@@ -398,3 +398,29 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .stock-row .stock-qty { font-weight: 700; white-space: nowrap; }
 .cooked-rows li { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px 0; }
 .deduct-rows li { gap: 10px; }
+
+/* ---------- V2-J4 : planning de la semaine ---------- */
+.section-title { font-size: 22px; margin: 8px 0 0; }
+.week-nav .card-title { flex: 1; margin: 0; }
+.week { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.week-day-title { font-size: 15px; margin: 0 0 6px; color: var(--brun); }
+.week-day.today .week-day-title { color: var(--terracotta-fonce); }
+.week-meals { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.meal-slot {
+  font: inherit; text-align: left; min-height: 60px; padding: 8px 10px; border-radius: 12px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; border: 1.5px solid var(--bord); background: var(--carte); color: var(--brun);
+}
+.meal-slot.empty { border-style: dashed; background: var(--creme); }
+.meal-slot.filled { background: #FDE8C4; border-color: #F3D9A8; }
+.meal-slot.eaten { background: #E4EFE2; border-color: #C9DDC5; }
+.meal-label { font-size: 12px; font-weight: 700; color: var(--brun-doux); text-transform: uppercase; letter-spacing: 0.04em; }
+.meal-title { font-weight: 600; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.week-day.past .meal-slot.empty { border-color: var(--bord); }
+.alerts { gap: 10px; }
+.alert-row { display: flex; flex-direction: column; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--bord); }
+.alert-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.alert-row p { margin: 0; }
+.alert-row .btn { align-self: flex-start; }
+.slot-option { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 8px 0; min-height: 52px; justify-content: center; }
+.slot-option[aria-pressed='true'] span:first-child { color: var(--terracotta-fonce); font-weight: 700; }
+.slot-option:focus-visible { outline: 3px solid var(--safran); outline-offset: 2px; border-radius: 8px; }

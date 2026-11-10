@@ -32,5 +32,7 @@ describe('router', () => {
     expect(routeToHash({ name: 'batch-cuisine', step: 2 })).toBe('#/batch/cuisine/2');
     expect(tabOf({ name: 'batch-cuisine' })).toBe('batch');
     expect(tabOf({ name: 'batch' })).toBe('batch');
+    expect(parseHash('#/semaine')).toEqual({ name: 'semaine' });
+    expect(parseHash('#/reserve')).toEqual({ name: 'semaine' });
   });
 });

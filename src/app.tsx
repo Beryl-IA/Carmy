@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'preact/hooks';
 import { TabBar } from './components/TabBar';
-import { loadDishes, loadSettings, requestPersistence, saveSettings } from './db/db';
+import { loadDishes, loadPlanning, loadSettings, requestPersistence, saveSettings } from './db/db';
 import type { Settings } from './model/types';
 import { EMPTY_FILTER, type RecipeFilter } from './model/search';
 import { AddPage } from './pages/AddPage';
-import { ReservePage } from './pages/ReservePage';
-import { urgentCount } from './model/stock';
+import { SemainePage } from './pages/SemainePage';
+import { weekBadge } from './model/planning';
 import { BatchCookPage } from './pages/BatchCookPage';
 import { BatchPage } from './pages/BatchPage';
 import { CollectionsPage } from './pages/CollectionsPage';
@@ -30,9 +30,9 @@ export function App() {
   const [dataVersion, setDataVersion] = useState(0);
   const bump = () => setDataVersion((v) => v + 1);
   const [queueCount, setQueueCount] = useState(0);
-  /** V2-J3 : plats à manger vite (pastille de l'onglet Réserve), recalculé à chaque navigation. */
+  /** V2-J3/J4 : plats à manger vite, à décongeler, repas à confirmer (pastille de l'onglet Semaine), recalculé à chaque navigation. */
   const [urgent, setUrgent] = useState(0);
-  const refreshUrgent = () => void loadDishes().then((d) => setUrgent(urgentCount(d, Date.now())), () => {});
+  const refreshUrgent = () => void Promise.all([loadDishes(), loadPlanning()]).then(([d, p]) => setUrgent(weekBadge(d, p, Date.now())), () => {});
   /** Après un import : toutes les données ont pu changer. */
   const reloadAll = () => {
     void loadSettings().then(setSettings);
@@ -83,10 +83,10 @@ export function App() {
         <CookPage key={route.id} id={route.id} step={route.step} servings={route.servings} defaultServings={settings.defaultServings} navToken={route} />
       )}
       {route.name === 'batch' && <BatchPage settings={settings} />}
-      {route.name === 'reserve' && <ReservePage onChanged={refreshUrgent} />}
+      {route.name === 'semaine' && <SemainePage onChanged={refreshUrgent} />}
       {route.name === 'batch-cuisine' && <BatchCookPage step={route.step} navToken={route} />}
       {!cooking && <TimerDock />}
-      {!cooking && <TabBar active={tab} badges={{ ajouter: queueCount, reserve: urgent }} />}
+      {!cooking && <TabBar active={tab} badges={{ ajouter: queueCount, semaine: urgent }} />}
     </div>
     </TimersProvider>
   );

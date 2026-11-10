@@ -7,6 +7,7 @@ import {
 import type { AppData } from '../model/backup';
 import type { BatchSession } from '../model/batch';
 import type { StockItem, StoredDish } from '../model/stock';
+import type { PlannedMeal } from '../model/planning';
 
 const DB_NAME = 'carmy';
 const DB_VERSION = 1;
@@ -209,6 +210,16 @@ export async function addToShopping(recipeId: string, servings: number): Promise
 
 const STOCK_KEY = 'stock';
 const DISHES_KEY = 'dishes';
+const PLANNING_KEY = 'planning';
+
+/** Planning de la semaine (V2-J4). */
+export async function loadPlanning(): Promise<PlannedMeal[]> {
+  return ((await (await getDb()).get('kv', PLANNING_KEY)) as PlannedMeal[] | undefined) ?? [];
+}
+
+export async function savePlanning(plan: PlannedMeal[]): Promise<void> {
+  await (await getDb()).put('kv', plan, PLANNING_KEY);
+}
 
 export async function loadStock(): Promise<StockItem[]> {
   return ((await (await getDb()).get('kv', STOCK_KEY)) as StockItem[] | undefined) ?? [];
@@ -276,11 +287,11 @@ export async function deleteQueueJob(id: string): Promise<void> {
 // ---------- Export / import (F8) ----------
 
 export async function exportAll(): Promise<AppData> {
-  const [recipes, collections, pantry, settings, shopping, stock, dishes] = await Promise.all([
-    listRecipes(), listCollections(), loadPantry(), loadSettings(), loadShopping(), loadStock(), loadDishes(),
+  const [recipes, collections, pantry, settings, shopping, stock, dishes, planning] = await Promise.all([
+    listRecipes(), listCollections(), loadPantry(), loadSettings(), loadShopping(), loadStock(), loadDishes(), loadPlanning(),
   ]);
   const { apiKey: _secret, ...safe } = settings;
-  return { recipes, collections, pantry, settings: safe, shopping, stock, dishes };
+  return { recipes, collections, pantry, settings: safe, shopping, stock, dishes, planning };
 }
 
 /** Remplace toutes les données (recettes, collections, garde-manger, réglages hors clé, courses). */
@@ -296,6 +307,7 @@ export async function writeAll(data: AppData): Promise<void> {
   await tx.objectStore('kv').put(data.shopping, SHOPPING_KEY);
   await tx.objectStore('kv').put(data.stock, STOCK_KEY);
   await tx.objectStore('kv').put(data.dishes, DISHES_KEY);
+  await tx.objectStore('kv').put(data.planning, PLANNING_KEY);
   // La clé API n'est jamais dans une sauvegarde : on garde celle de l'appareil.
   await tx.objectStore('kv').put({ ...DEFAULT_SETTINGS, ...data.settings, ...(current?.apiKey ? { apiKey: current.apiKey } : {}) }, SETTINGS_KEY);
   await tx.done;

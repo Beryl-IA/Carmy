@@ -62,6 +62,17 @@ export function HelpPage() {
       </section>
 
       <section class="card stack">
+        <h2>Semaine</h2>
+        <ul>
+          <li>Le planning va du lundi au dimanche, <strong>midi et soir</strong>. Touche un créneau pour y mettre un plat de la réserve, une recette à cuisiner ou autre chose (restaurant…).</li>
+          <li><strong>✨ Remplir avec la réserve</strong> place les portions libres dans les repas à venir : d'abord ce qui périme le plus tôt au frigo, puis le congélateur (à partir du lendemain), en alternant les plats.</li>
+          <li>Les <strong>rappels</strong> en haut de l'écran : sortir un plat du congélateur la veille, plat qui sera périmé avant le repas prévu, portions manquantes.</li>
+          <li>Après le repas, Carmy demande « As-tu mangé … ? » : <strong>Oui</strong> retire une portion de la réserve. Tu peux aussi toucher le créneau puis <strong>✓ Mangé</strong>.</li>
+          <li>La pastille de l'onglet compte les rappels et les plats à manger vite.</li>
+        </ul>
+      </section>
+
+      <section class="card stack">
         <h2>Réserve</h2>
         <ul>
           <li><strong>Produits</strong> : en magasin, coche tes articles dans Courses, puis touche <strong>🧺 Ranger les courses</strong>. Corrige la quantité achetée si besoin (un paquet de 1 kg pour 300 g nécessaires) : tout part dans la réserve.</li>
