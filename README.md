@@ -6,7 +6,7 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 - Fonctionne hors-ligne, sauf l'extraction par IA.
 - Cahier des charges : [`docs/cahier-des-charges-carmy.md`](docs/cahier-des-charges-carmy.md).
 
-**État : V1 (jalons J0 à J7) livrée. V2 en cours : V2-J1, V2-J2a et V2-J2b livrés.**
+**État : V1 (jalons J0 à J7) livrée. V2 en cours : V2-J1, V2-J2a, V2-J2b et V2-J3 livrés.**
 
 ### Feuille de route V2 (batch cooking)
 
@@ -15,7 +15,7 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 | V2-J1 | Recette depuis une ou plusieurs captures d'écran | ✅ 1.1.0 |
 | V2-J2a | Fiche enrichie : icône par ingrédient, conservation frigo/congélateur, valeurs nutritionnelles par portion, « Compléter avec l'IA » | ✅ 1.2.0 |
 | V2-J2b | Session de batch cooking : recettes et portions, courses groupées, déroulé optimisé par l'IA (ou simple), mode cuisine de session, récapitulatif de conservation | ✅ 1.3.0 |
-| V2-J3 | Réserve : plats cuisinés (portions, dates limites) et produits achetés, avec quantités décomptées automatiquement quand on cuisine | à faire |
+| V2-J3 | Réserve : plats cuisinés (portions, frigo/congélateur, dates limites) et produits achetés (quantités), « Ranger les courses », courses limitées au manque, déduction des ingrédients en fin de cuisson | ✅ 1.4.0 |
 | V2-J4 | Planning de la semaine (midi et soir, 1 personne) à partir des plats en réserve | à faire |
 
 ## Fonctionnalités
@@ -26,6 +26,7 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 | **Ajouter** | Vidéo (Photos ou Fichiers), **captures d'écran** (jusqu'à 10 par recette, ordre modifiable, choix de la miniature), texte collé ou saisie manuelle, lien du post d'origine. Extraction par Gemini, puis **relecture obligatoire** avant enregistrement. En cas d'échec, la vidéo ou les captures restent en **file d'attente** (5 max) et se relancent en un tap. |
 | **Mode cuisine** | Plein écran, une étape à la fois, glisser pour changer d'étape, ingrédients à portée, minuteurs multiples (pause, +1 min), alarme sonore et visuelle, écran maintenu allumé. |
 | **Batch** | Session de batch cooking : 2 à 6 recettes avec leurs portions, ajout groupé aux courses, déroulé unique optimisé par l'IA (pastilles de recette par étape) ou déroulé simple sans IA, mode cuisine de la session (minuteurs, ingrédients par recette, reprise), récapitulatif des dates limites frigo/congélateur. |
+| **Réserve** | Plats cuisinés au frigo et au congélateur (portions, « à manger avant », −1 portion, congeler/décongeler, ajout de restes), produits achetés avec leurs quantités (modifiables), pastille des plats à manger vite. |
 | **Courses** | Recettes choisies avec portions par recette, fusion des doublons et conversion d'unités, tri par rayon, garde-manger (« Déjà à la maison »), cases à cocher sauvegardées, ajout manuel. |
 | **Réglages** | Clé API et modèle (avec tests), analyse rapide, portions par défaut, garde-manger, **sauvegarde / restauration**, aide, version. |
 
@@ -129,6 +130,7 @@ Signalés au fil des jalons et validés à l'usage :
 - **Captures d'écran en entrée** (V2-J1, listé « hors périmètre V1 » au §12) : nouvelle source `image`. Les captures sont recompressées sur l'iPhone (JPEG, 2048 px maximum) avant envoi, envoyées en une seule requête (Files API au-delà de 14 Mo), dans l'ordre choisi. L'« analyse rapide » (basse résolution) ne s'applique pas aux captures, pour que le texte reste lisible. La miniature est recadrée au format 4:5 des cartes. Les captures ne sont pas conservées après l'enregistrement, comme les vidéos (F1.5), mais un lot en échec est gardé dans la file d'attente.
 - **Fiche enrichie** (V2-J2a, inspirée fonctionnellement de l'appli Basta, sans reprise de visuels) : champs facultatifs `storage` (`fridgeDays`, `freezerMonths`, 0 = congélation déconseillée) et `nutrition` (kcal, protéines, glucides, lipides, fibres par portion), estimés par l'IA dans la même requête que l'extraction (schéma §8 étendu) ou après coup (« Compléter avec l'IA » : requête texte, ne remplace jamais une valeur existante). Icônes d'ingrédients : emoji Unicode choisis localement par mots-clés (`model/icons.ts`), repli sur le rayon, sans IA. Pas de migration IndexedDB (champs facultatifs).
 - **Session de batch cooking** (V2-J2b) : nouvel onglet « Batch » (5 onglets). Une seule session à la fois, stockée dans `kv` (`batch`), **non incluse dans la sauvegarde** (données de travail ; la réserve du V2-J3 le sera). Le déroulé IA est validé (chaque recette doit apparaître) avec un nouvel essai si besoin. Le mode cuisine est désormais un composant générique (`CookView`) partagé par une recette et une session ; les minuteurs de session ont l'identifiant `batch`.
+- **Réserve** (V2-J3) : nouvel onglet (6 onglets). Produits (`kv` `stock`) stockés en unité de base de leur famille (g, ml, nombre), cumulés par nom + famille d'unité comme la liste de courses ; plats (`kv` `dishes`) avec lieu et date limite. « Ranger les courses » (bouton plutôt qu'ajout automatique à la coche, choix de l'utilisatrice) ajoute les articles cochés avec une quantité modifiable. La liste de courses n'affiche que la quantité manquante et range dans « Déjà à la maison » ce qui est couvert. En fin de cuisson (recette ou session), une feuille propose la répartition frigo/congélateur (2 repas par jour pour 1 personne) et la déduction des ingrédients, désactivable. Le **garde-manger est conservé** comme liste de basiques jamais décomptés. Réserve incluse dans la sauvegarde (champs facultatifs, format 1 inchangé).
 
 ## Bilan du jalon 1 (09/11/2026)
 

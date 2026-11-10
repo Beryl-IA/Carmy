@@ -156,6 +156,7 @@ Feuille de route validée par l'utilisatrice (détail dans le README) :
 - **V2-J1 (1.1.0, livré)** : recette depuis 1 à 10 captures d'écran (`media/image.ts`, entrée `images` du provider, source `image`, file d'attente `kind: 'images'`).
 - **V2-J2a (1.2.0, livré)** : `model/icons.ts`, `model/details.ts`, `Recipe.storage`/`nutrition`, `GeminiProvider.estimateDetails`, `EnrichCard` dans Réglages.
 - **V2-J2b (1.3.0, livré)** : `model/batch.ts` (session, déroulé simple, validation du déroulé IA, récapitulatif), `GeminiProvider.planBatch`, `pages/BatchPage.tsx`, `pages/BatchCookPage.tsx`, `components/CookView.tsx` (mode cuisine générique), `components/RecipePicker.tsx`, routes `#/batch` et `#/batch/cuisine/<étape>`, kv `batch`.
+- **V2-J3 (1.4.0, livré)** : `model/stock.ts` (produits, plats, déduction, répartition), `buildShoppingList(…, stock)`, `pages/ReservePage.tsx`, `components/CookedSheet.tsx` (fin de cuisson), feuille « Ranger les courses » dans `ShoppingPage`, kv `stock` et `dishes` (inclus dans la sauvegarde).
 - **V2-J2** : fiche enrichie inspirée (fonctionnellement seulement) de l'appli Basta : icône par ingrédient, conservation conseillée frigo/congélateur, valeurs nutritionnelles ; session de batch cooking avec déroulé optimisé.
 - **V2-J3** : réserve (plats cuisinés + produits achetés) avec **quantités** ; cuisiner une recette décompte automatiquement les ingrédients du stock (ex. 300 g de riz).
 - **V2-J4** : planning de la semaine, **midi et soir uniquement, 1 personne**.
