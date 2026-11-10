@@ -105,7 +105,7 @@ export function RecipePage({ id, version, defaultServings, onChanged }: Props) {
             </>
           }
         >
-          <h3>Collections</h3>
+          <h2>Collections</h2>
           <ul class="tags suggestions">
             {collections.map((c) => {
               const inside = recipe.collectionIds.includes(c.id);

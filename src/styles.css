@@ -3,7 +3,10 @@
   --terracotta: #D9532B;
   --terracotta-fonce: #B8401D;
   --safran: #F2A93B;
-  --basilic: #4F7F52;
+  /* Basilic légèrement assombri (au lieu de #4F7F52) : contraste AA ≥ 4,5 sur tous les fonds. */
+  --basilic: #466F49;
+  /* Fond des boutons : terracotta assombri pour un texte blanc lisible (AA, 4,95). */
+  --terracotta-btn: #C4461E;
   --brun: #3B2A20;
   --brun-doux: #6E5A4C;
   --carte: #FFFFFF;
@@ -69,7 +72,7 @@ input:focus, select:focus { outline: 3px solid rgb(217 83 43 / 30%); border-colo
 
 .btn {
   font: inherit; font-weight: 700; min-height: 50px; padding: 12px 20px; border-radius: 14px; border: 0;
-  background: var(--terracotta); color: #fff; cursor: pointer;
+  background: var(--terracotta-btn); color: #fff; cursor: pointer;
 }
 .btn:active { background: var(--terracotta-fonce); }
 .btn:disabled { opacity: 0.45; }
@@ -100,7 +103,7 @@ input:focus, select:focus { outline: 3px solid rgb(217 83 43 / 30%); border-colo
 .recipe-thumb { width: 100%; max-height: 320px; object-fit: cover; display: block; }
 .recipe-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .recipe-title { font-size: 26px; }
-.recipe h3 { font-size: 20px; margin-top: 8px; color: var(--terracotta-fonce); }
+.recipe h2:not(.recipe-title) { font-size: 20px; margin-top: 8px; color: var(--terracotta-fonce); }
 .recipe-facts { list-style: none; padding: 0; margin: 0; display: flex; gap: 6px 16px; flex-wrap: wrap; color: var(--brun-doux); font-size: 15px; }
 .tags { list-style: none; padding: 0; margin: 0; display: flex; gap: 6px; flex-wrap: wrap; }
 .tags li { background: #FDE8C4; border-radius: 99px; padding: 3px 12px; font-size: 14px; font-weight: 600; }
@@ -210,7 +213,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
   border: 1.5px solid var(--bord); background: var(--carte); color: var(--brun); text-decoration: none; display: inline-flex; align-items: center; white-space: nowrap;
 }
 .chip.tag { border-color: #F3D9A8; }
-.chip.on { background: var(--terracotta); border-color: var(--terracotta); color: #fff; }
+.chip.on { background: var(--terracotta-btn); border-color: var(--terracotta-btn); color: #fff; }
 .chip.ghost { border-style: dashed; color: var(--brun-doux); }
 .link-btn { font: inherit; border: 0; background: none; color: var(--terracotta-fonce); text-decoration: underline; padding: 6px 0; min-height: 32px; cursor: pointer; }
 
@@ -235,7 +238,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 }
 .cook-top { display: flex; align-items: center; gap: 10px; }
 .cook-title { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.cook-title > span:first-child { font-family: var(--serif); font-weight: 700; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cook-title h1 { font-size: 18px; margin: 0; font-family: var(--serif); font-weight: 700; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cook-icon { flex: none; font: inherit; font-size: 22px; width: 52px; height: 52px; border-radius: 16px; border: 1.5px solid var(--bord); background: var(--carte); color: var(--brun); }
 .cook-progress { height: 6px; background: var(--bord); border-radius: 99px; margin: 12px 0 4px; overflow: hidden; }
 .cook-progress span { display: block; height: 100%; background: var(--terracotta); border-radius: 99px; transition: width 0.25s; }
@@ -243,7 +246,7 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .cook-text { font-size: clamp(24px, 6.4vw, 34px); line-height: 1.35; font-weight: 500; margin: 0; }
 .cook-timer { display: flex; justify-content: center; }
 .timer-start { width: 100%; background: var(--basilic); }
-.timer-start:active { background: #3E6741; }
+.timer-start:active { background: #3A5D3D; }
 .timer-controls { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; padding: 16px; border-radius: var(--rayon); background: #E4EFE4; }
 .timer-controls.paused { background: #F6E6CF; }
 .timer-controls .clock { font-size: 56px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--basilic); line-height: 1; }
@@ -275,7 +278,10 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
   background: var(--terracotta); animation: alarm-flash 1s steps(2, jump-none) infinite;
 }
 @keyframes alarm-flash { 50% { background: var(--safran); } }
-@media (prefers-reduced-motion: reduce) { .alarm { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .alarm, .alarm-icon, .spinner { animation: none; }
+  .cook-progress span { transition: none; }
+}
 .alarm-card { background: var(--creme); border-radius: 28px; padding: 28px 24px; width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 14px; text-align: center; box-shadow: 0 10px 40px rgb(0 0 0 / 25%); }
 .alarm-icon { font-size: 64px; line-height: 1; animation: alarm-shake 0.5s ease-in-out infinite; }
 @keyframes alarm-shake { 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
@@ -325,3 +331,12 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .help { padding: 12px 16px; }
 .help summary { min-height: 32px; display: flex; align-items: center; }
 .help[open] summary { margin-bottom: 8px; }
+
+/* ---------- Jalon 7 : accessibilité, aide ---------- */
+:focus-visible { outline: 3px solid rgb(196 70 30 / 55%); outline-offset: 2px; }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 0; }
+.cook-step .hint { align-self: stretch; }
+.install-banner { display: flex; align-items: center; gap: 10px; background: var(--carte); border: 1.5px dashed var(--safran); border-radius: var(--rayon); padding: 10px 12px; font-size: 15px; }
+.help-page section h2 { font-size: 21px; color: var(--terracotta-fonce); }
+.help-page p, .help-page li { font-size: 16px; }
+.help-page ul { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }

@@ -11,7 +11,8 @@ export type Route =
   | { name: 'cuisine'; id: string; step?: number; servings?: number }
   | { name: 'ajouter' }
   | { name: 'courses' }
-  | { name: 'reglages' };
+  | { name: 'reglages' }
+  | { name: 'aide' };
 
 export function parseHash(hash: string): Route {
   const [, page = '', id = '', stepRaw = '', servingsRaw = ''] = hash.replace(/^#/, '').split('/');
@@ -31,6 +32,7 @@ export function parseHash(hash: string): Route {
     case 'modifier':
       return id ? { name: page, id: decodeURIComponent(id) } : { name: 'recettes' };
     case 'collections':
+    case 'aide':
     case 'ajouter':
     case 'courses':
     case 'reglages':
@@ -49,6 +51,7 @@ export function routeToHash(r: Route): string {
 }
 
 export function tabOf(r: Route): Tab {
+  if (r.name === 'aide') return 'reglages';
   return r.name === 'recette' || r.name === 'modifier' || r.name === 'collections' || r.name === 'cuisine' ? 'recettes' : r.name;
 }
 

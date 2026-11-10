@@ -88,7 +88,7 @@ export function CookPage({ id, step: initialStep = 0, servings: routeServings, d
       <header class="cook-top">
         <button type="button" class="cook-icon" aria-label="Quitter le mode cuisine" onClick={exit}>✕</button>
         <div class="cook-title">
-          <span>{recipe.title}</span>
+          <h1>{recipe.title}</h1>
           <span class="muted small">
             {count ? `Étape ${current + 1} sur ${count}` : 'Aucune étape'}
             {' · '}
@@ -100,16 +100,6 @@ export function CookPage({ id, step: initialStep = 0, servings: routeServings, d
       <div class="cook-progress" aria-hidden="true">
         <span style={{ width: count ? `${((current + 1) / count) * 100}%` : '0%' }} />
       </div>
-
-      {(wakeLock === 'error' || wakeLock === 'unsupported') && !lockTipClosed && (
-        <p class="hint small row between nowrap">
-          <span>
-            iOS n'a pas pu garder l'écran allumé. Pour cette fois : Réglages de l'iPhone › Luminosité et affichage › Verrouillage
-            automatique › Jamais (pense à le remettre ensuite).
-          </span>
-          <button type="button" class="icon-btn" aria-label="Masquer" onClick={() => setLockTipClosed(true)}>✕</button>
-        </p>
-      )}
 
       <main
         class="cook-step"
@@ -127,6 +117,15 @@ export function CookPage({ id, step: initialStep = 0, servings: routeServings, d
           if (Math.abs(dx) > 60 && Math.abs(dx) > 1.5 * Math.abs(dy)) go(dx < 0 ? 1 : -1);
         }}
       >
+        {(wakeLock === 'error' || wakeLock === 'unsupported') && !lockTipClosed && (
+          <p class="hint small row between nowrap">
+            <span>
+              iOS n'a pas pu garder l'écran allumé. Pour cette fois : Réglages de l'iPhone › Luminosité et affichage › Verrouillage
+              automatique › Jamais (pense à le remettre ensuite).
+            </span>
+            <button type="button" class="icon-btn" aria-label="Masquer" onClick={() => setLockTipClosed(true)}>✕</button>
+          </p>
+        )}
         {s ? <p class="cook-text" aria-live="polite">{s.text}</p> : <p class="cook-text muted">Cette recette n'a pas d'étapes.</p>}
 
         {s && (

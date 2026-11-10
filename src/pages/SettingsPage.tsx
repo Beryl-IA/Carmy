@@ -2,6 +2,7 @@ import { BackupCard } from '../components/BackupCard';
 import { PantryEditor } from '../components/PantryEditor';
 import { SettingsCard } from '../components/SettingsCard';
 import { APP_NAME } from '../config';
+import { isStandalone } from '../pwa/standalone';
 import type { Settings } from '../model/types';
 
 interface Props {
@@ -13,8 +14,7 @@ interface Props {
   onImported: () => void;
 }
 
-const isStandalone = () =>
-  window.matchMedia?.('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
 
 export function SettingsPage({ settings, onChange, persisted, onSettings, onImported }: Props) {
   const setServings = (n: number) => onChange({ ...settings, defaultServings: Math.min(20, Math.max(1, n)) });
@@ -22,6 +22,7 @@ export function SettingsPage({ settings, onChange, persisted, onSettings, onImpo
     <main class="page stack">
       <header class="page-header">
         <h1>Réglages</h1>
+        <a class="btn small secondary header-action" href="#/aide">Aide</a>
       </header>
 
       <SettingsCard settings={settings} onChange={onChange} />
@@ -63,6 +64,9 @@ export function SettingsPage({ settings, onChange, persisted, onSettings, onImpo
             <li>Choisis <strong>Sur l'écran d'accueil</strong>, puis <strong>Ajouter</strong>.</li>
             <li>Ouvre {APP_NAME} depuis sa nouvelle icône.</li>
           </ol>
+        )}
+        {!isStandalone() && (
+          <p class="small"><a href="#/aide">Toute l'aide (minuteurs, sauvegarde, clé API…)</a></p>
         )}
       </section>
 

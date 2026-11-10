@@ -6,6 +6,7 @@ import { EMPTY_FILTER, type RecipeFilter } from './model/search';
 import { AddPage } from './pages/AddPage';
 import { CollectionsPage } from './pages/CollectionsPage';
 import { CookPage } from './pages/CookPage';
+import { HelpPage } from './pages/HelpPage';
 import { TimerDock, TimersProvider } from './timers/TimersContext';
 import { EditPage } from './pages/EditPage';
 import { RecipePage } from './pages/RecipePage';
@@ -68,6 +69,7 @@ export function App() {
       {route.name === 'collections' && <CollectionsPage onChanged={bump} />}
       {route.name === 'courses' && <ShoppingPage defaultServings={settings.defaultServings} />}
       {route.name === 'reglages' && <SettingsPage settings={settings} onChange={updateSettings} persisted={persisted} onSettings={setSettings} onImported={reloadAll} />}
+      {route.name === 'aide' && <HelpPage />}
       {route.name === 'cuisine' && (
         <CookPage key={route.id} id={route.id} step={route.step} servings={route.servings} defaultServings={settings.defaultServings} navToken={route} />
       )}

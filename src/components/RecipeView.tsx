@@ -17,7 +17,7 @@ export function RecipeView({ recipe, thumbnailUrl, sourceUrl, servingsNode, chil
     <article class="recipe">
       {thumbnailUrl && <img class="recipe-thumb" src={thumbnailUrl} alt="" />}
       <div class="recipe-body">
-        <h2 class="recipe-title">{recipe.title}</h2>
+        <h1 class="recipe-title">{recipe.title}</h1>
         <ul class="recipe-facts">
           {!servingsNode && <li>{recipe.servings} {recipe.servings > 1 ? 'portions' : 'portion'}</li>}
           {recipe.prepMinutes != null && <li>Préparation {recipe.prepMinutes} min</li>}
@@ -31,7 +31,7 @@ export function RecipeView({ recipe, thumbnailUrl, sourceUrl, servingsNode, chil
           <p><a href={sourceUrl} target="_blank" rel="noopener noreferrer">Voir le post d'origine</a></p>
         )}
 
-        <h3>Ingrédients ({recipe.ingredients.length})</h3>
+        <h2>Ingrédients ({recipe.ingredients.length})</h2>
         <ul class="ingredients">
           {recipe.ingredients.map((ing, i) => (
             <li key={i}>
@@ -46,7 +46,7 @@ export function RecipeView({ recipe, thumbnailUrl, sourceUrl, servingsNode, chil
           ))}
         </ul>
 
-        <h3>Étapes ({recipe.steps.length})</h3>
+        <h2>Étapes ({recipe.steps.length})</h2>
         <ol class="steps">
           {recipe.steps.map((s, i) => (
             <li key={i}>

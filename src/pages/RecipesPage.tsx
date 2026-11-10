@@ -4,6 +4,7 @@ import { APP_NAME } from '../config';
 import { listCollections, listRecipes } from '../db/db';
 import { useExport } from '../components/BackupCard';
 import { backupReminder } from '../model/backup';
+import { isStandalone } from '../pwa/standalone';
 import { filterRecipes, tagsByFrequency, type RecipeFilter } from '../model/search';
 import type { Collection, Recipe, Settings } from '../model/types';
 
@@ -33,6 +34,19 @@ export function RecipesPage({ version, filter, onFilter, settings, onSettings, o
       onFilter({ ...filter, collectionId: null });
   }, [collections]);
 
+  const [installHidden, setInstallHidden] = useState(() => {
+    try {
+      return isStandalone() || localStorage.getItem('carmy.installHint') === 'masque';
+    } catch {
+      return isStandalone();
+    }
+  });
+  const hideInstall = () => {
+    setInstallHidden(true);
+    try {
+      localStorage.setItem('carmy.installHint', 'masque');
+    } catch { /* ignore */ }
+  };
   const reminder = recipes ? backupReminder(settings, recipes.length, Date.now()) : null;
   const tags = useMemo(() => tagsByFrequency(recipes ?? []), [recipes]);
   const results = useMemo(() => filterRecipes(recipes ?? [], filter), [recipes, filter]);
@@ -47,6 +61,13 @@ export function RecipesPage({ version, filter, onFilter, settings, onSettings, o
         <h1>{APP_NAME}</h1>
         {recipes && recipes.length > 0 && <span class="muted count">{recipes.length} recette{recipes.length > 1 ? 's' : ''}</span>}
       </header>
+
+      {!installHidden && (
+        <div class="install-banner" role="note">
+          <span class="grow">📲 Installe {APP_NAME} : Partager › <strong>Sur l'écran d'accueil</strong>. <a href="#/aide">Comment ?</a></span>
+          <button type="button" class="icon-btn" aria-label="Masquer ce conseil" onClick={hideInstall}>✕</button>
+        </div>
+      )}
 
       {reminder && (
         <BackupReminder
@@ -64,6 +85,11 @@ export function RecipesPage({ version, filter, onFilter, settings, onSettings, o
           <h2 class="card-title">Ta bibliothèque est vide</h2>
           <p class="muted">Ajoute ta première recette depuis une vidéo, un texte ou à la main.</p>
           <a class="btn" href="#/ajouter">Ajouter une recette</a>
+          {!settings.apiKey && (
+            <p class="muted small">
+              Pour l'extraction automatique depuis une vidéo, ajoute d'abord ta clé API dans <a href="#/reglages">Réglages</a>.
+            </p>
+          )}
         </section>
       ) : (
         <>
