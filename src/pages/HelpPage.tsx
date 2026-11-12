@@ -64,22 +64,33 @@ export function HelpPage() {
       <section class="card stack">
         <h2>Semaine</h2>
         <ul>
-          <li>Le planning va du lundi au dimanche, <strong>midi et soir</strong>. Touche un créneau pour y mettre un plat de la réserve, une recette à cuisiner ou autre chose (restaurant…).</li>
-          <li><strong>✨ Remplir avec la réserve</strong> place les portions libres dans les repas à venir : d'abord ce qui périme le plus tôt au frigo, puis le congélateur (à partir du lendemain), en alternant les plats.</li>
+          <li>Le planning va du lundi au dimanche, <strong>midi et soir</strong>. Touche un créneau pour y mettre un plat cuisiné du stock, une recette à cuisiner ou un <strong>repas simple</strong>.</li>
+          <li><strong>Repas simple</strong> (hors recette, ex. : steak + boîte de haricots) : donne-lui un nom ou laisse Carmy le composer, puis coche les produits du stock utilisés et leur quantité. Ils sont réservés, puis <strong>retirés du stock quand tu confirmes avoir mangé</strong>. Sans produit coché, c'est un simple mémo (restaurant…).</li>
+          <li><strong>✨ Remplir avec le stock</strong> place les portions libres de plats cuisinés dans les repas à venir : d'abord ce qui périme le plus tôt au frigo, puis le congélateur (à partir du lendemain), en alternant les plats.</li>
           <li>Les <strong>rappels</strong> en haut de l'écran : sortir un plat du congélateur la veille, plat qui sera périmé avant le repas prévu, portions manquantes.</li>
-          <li>Après le repas, Carmy demande « As-tu mangé … ? » : <strong>Oui</strong> retire une portion de la réserve. Tu peux aussi toucher le créneau puis <strong>✓ Mangé</strong>.</li>
-          <li>La pastille de l'onglet compte les rappels et les plats à manger vite.</li>
+          <li>Après le repas, Carmy demande « As-tu mangé … ? » : <strong>Oui</strong> retire la portion ou les produits du stock. Tu peux aussi toucher le créneau puis <strong>✓ Mangé</strong>.</li>
+          <li>La pastille de l'onglet compte les rappels.</li>
         </ul>
       </section>
 
       <section class="card stack">
-        <h2>Réserve</h2>
+        <h2>Stock</h2>
         <ul>
-          <li><strong>Produits</strong> : en magasin, coche tes articles dans Courses, puis touche <strong>🧺 Ranger les courses</strong>. Corrige la quantité achetée si besoin (un paquet de 1 kg pour 300 g nécessaires) : tout part dans la réserve.</li>
-          <li>Les courses tiennent compte de la réserve : ce que tu as déjà passe dans « Déjà à la maison », et seule la quantité manquante reste à acheter.</li>
+          <li><strong>Produits</strong> : en magasin, <strong>coche un article dans Courses et il entre aussitôt dans le stock</strong> avec la quantité de la liste ; décoche-le et il en ressort. Si le paquet était plus gros (1 kg pour 300 g nécessaires), touche la quantité dans Stock pour la corriger.</li>
+          <li>Tu peux aussi ajouter un produit à la main (<strong>+ Ajouter un produit</strong>), toucher une quantité pour la corriger, ou ✕ quand un produit est terminé.</li>
+          <li>Les courses tiennent compte du stock : ce que tu as déjà passe dans « Déjà à la maison », et seule la quantité manquante reste à acheter.</li>
           <li>Quand tu termines une recette ou une session, Carmy propose de <strong>déduire les ingrédients utilisés</strong> (300 g de riz : 1 kg → 700 g) et de <strong>ranger les portions</strong> au frigo ou au congélateur.</li>
-          <li><strong>Plats</strong> : touche <strong>−1</strong> quand tu manges une portion, ❄️ pour congeler, 🧊 pour décongeler (à manger sous 24 h). La pastille de l'onglet Réserve compte les plats à manger aujourd'hui ou demain.</li>
-          <li>Touche une quantité pour la corriger, ✕ quand un produit est terminé. Les basiques du garde-manger (sel, huile…) ne sont jamais décomptés.</li>
+          <li><strong>Plats</strong> : touche <strong>−1</strong> quand tu manges une portion, ❄️ pour congeler, 🧊 pour décongeler (à manger sous 24 h). La pastille de l'onglet Stock compte les plats à manger aujourd'hui ou demain.</li>
+          <li>Les basiques du garde-manger (sel, huile…) ne sont jamais décomptés.</li>
+        </ul>
+      </section>
+
+      <section class="card stack">
+        <h2>Mode Toulouse</h2>
+        <ul>
+          <li>Pour tes déplacements : active l'interrupteur <strong>📍 Mode Toulouse</strong> en haut de l'onglet Stock (ou dans Réglages).</li>
+          <li>Tant qu'il est actif, <strong>rien ne modifie le stock</strong> : les articles cochés dans Courses n'y entrent pas, les repas mangés n'en retirent rien, et la fin d'une recette ne range ni ne déduit rien.</li>
+          <li>Les repas que tu planifies sont marqués 📍 et ne demandent pas de confirmation. Un bandeau te rappelle que le mode est actif : <strong>désactive-le à ton retour</strong>.</li>
         </ul>
       </section>
 

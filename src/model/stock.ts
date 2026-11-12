@@ -41,7 +41,7 @@ const DAY = 24 * 3600 * 1000;
 
 export const stockKey = (s: Pick<StockItem, 'name' | 'family'>) => lineKey(s.name, s.family);
 
-function toBase(quantity: number, unit: Unit): number {
+export function toBase(quantity: number, unit: Unit): number {
   return quantity * (unit ? TO_BASE[unit] ?? 1 : 1);
 }
 
@@ -68,6 +68,58 @@ export function addToStock(stock: StockItem[], entries: StockEntry[], now: numbe
     }
   }
   return out;
+}
+
+/**
+ * Annule un ajout fait en cochant une ligne de courses (ligne décochée) : la quantité ajoutée repart,
+ * un produit vidé est retiré. Un produit sans quantité n'est retiré que s'il avait été créé par le cochage.
+ */
+export function removeFromStock(stock: StockItem[], entries: (StockEntry & { created?: boolean })[], now: number): StockItem[] {
+  let out = stock;
+  for (const e of entries) {
+    const key = lineKey(e.name.trim().toLowerCase(), unitFamily(e.unit, e.quantity));
+    out = out.flatMap((s) => {
+      if (stockKey(s) !== key) return [s];
+      if (e.quantity === null || s.base === null) return e.created ? [] : [s];
+      const left = s.base - toBase(e.quantity, e.unit);
+      return left > EPSILON ? [{ ...s, base: left, updatedAt: now }] : [];
+    });
+  }
+  return out;
+}
+
+/** Produit du stock utilisé par un repas simple. `quantity` null : le produit entier. */
+export interface MealProduct {
+  stockId: string;
+  name: string;
+  quantity: number | null;
+  unit: Unit;
+  aisle: Aisle;
+}
+
+/** Repas simple mangé : les produits choisis quittent le stock (quantité choisie, ou produit entier). */
+export function consumeProducts(stock: StockItem[], products: MealProduct[], now: number): StockItem[] {
+  let out = stock;
+  for (const p of products) {
+    const family = unitFamily(p.unit, p.quantity);
+    const target = out.find((s) => s.id === p.stockId)
+      ?? out.find((s) => normalizeText(s.name) === normalizeText(p.name) && (p.quantity === null || s.family === family));
+    if (!target) continue;
+    out = out.flatMap((s) => {
+      if (s !== target) return [s];
+      if (p.quantity === null || s.base === null) return [];
+      const left = s.base - toBase(p.quantity, p.unit);
+      return left > EPSILON ? [{ ...s, base: left, updatedAt: now }] : [];
+    });
+  }
+  return out;
+}
+
+/** Part d'un produit réservée par des repas simples prévus : quantité (unité de base), ou 'tout'. */
+export function reservedOf(item: StockItem, products: MealProduct[]): number | 'tout' {
+  const mine = products.filter((p) => p.stockId === item.id);
+  if (mine.some((p) => p.quantity === null)) return 'tout';
+  return mine.reduce((n, p) => n + toBase(p.quantity ?? 0, p.unit), 0);
 }
 
 /** Remplace la quantité d'un produit (saisie dans la réserve). Une quantité nulle ou négative le retire. */

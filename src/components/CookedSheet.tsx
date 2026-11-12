@@ -16,9 +16,11 @@ interface Props {
   mode: 'recipe' | 'batch';
   onDone: () => void;
   onCancel: () => void;
+  /** Mode Toulouse : rien n'est rangé ni déduit. */
+  toulouse?: boolean;
 }
 
-export function CookedSheet({ items, mode, onDone, onCancel }: Props) {
+export function CookedSheet({ items, mode, onDone, onCancel, toulouse }: Props) {
   const [stock, setStock] = useState<StockItem[] | null>(null);
   const [deduct, setDeduct] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -46,6 +48,17 @@ export function CookedSheet({ items, mode, onDone, onCancel }: Props) {
   const set = (i: number, key: 'fridge' | 'freezer', v: number) =>
     setSplit(split.map((s, j) => (j === i ? { ...s, [key]: Math.max(0, v) } : s)));
 
+  if (toulouse)
+    return (
+      <div class="sheet-backdrop" onClick={onCancel}>
+        <section class="sheet" role="dialog" aria-modal="true" aria-label="Fin de cuisson" onClick={(e) => e.stopPropagation()}>
+          <h2 class="card-title">{mode === 'batch' ? 'Session terminée 🎉' : 'Bon appétit !'}</h2>
+          <p>📍 <strong>Mode Toulouse actif</strong> : aucun plat n'est rangé et aucun ingrédient n'est déduit du stock.</p>
+          <button type="button" class="btn" onClick={onDone}>Terminer</button>
+        </section>
+      </div>
+    );
+
   return (
     <div class="sheet-backdrop" onClick={onCancel}>
       <section class="sheet" role="dialog" aria-modal="true" aria-label="Fin de cuisson" onClick={(e) => e.stopPropagation()}>
@@ -54,7 +67,7 @@ export function CookedSheet({ items, mode, onDone, onCancel }: Props) {
           <button type="button" class="cook-icon" aria-label="Fermer" onClick={onCancel}>✕</button>
         </div>
 
-        <h3 class="sheet-group">Ranger dans la réserve</h3>
+        <h3 class="sheet-group">Ranger dans le stock</h3>
         <p class="muted small">{mode === 'recipe' ? 'Portions à garder pour plus tard (une est comptée comme mangée maintenant).' : 'Portions à garder au frigo et au congélateur.'}</p>
         <ul class="list flush cooked-rows">
           {items.map((it, i) => {
@@ -80,12 +93,12 @@ export function CookedSheet({ items, mode, onDone, onCancel }: Props) {
         {!consumption ? (
           <p class="muted small">…</p>
         ) : consumption.changes.length === 0 ? (
-          <p class="muted small">Aucun de ces ingrédients n'est suivi dans ta réserve.</p>
+          <p class="muted small">Aucun de ces ingrédients n'est suivi dans ton stock.</p>
         ) : (
           <>
             <label class="check">
               <input type="checkbox" checked={deduct} onChange={(e) => setDeduct(e.currentTarget.checked)} />
-              <span>Déduire de la réserve</span>
+              <span>Déduire du stock</span>
             </label>
             <ul class="list flush deduct-rows">
               {consumption.changes.map((c) => (

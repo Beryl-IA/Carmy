@@ -1,5 +1,5 @@
 // Planning de la semaine (V2-J4) — logique pure : midi et soir, 1 personne, à partir des plats de la réserve.
-import { dishStatus, type StoredDish } from './stock';
+import type { MealProduct, StoredDish } from './stock';
 
 export type Meal = 'midi' | 'soir';
 export const MEALS: Meal[] = ['midi', 'soir'];
@@ -22,6 +22,15 @@ export interface PlannedMeal {
   dishId?: string;
   recipeId?: string;
   eaten?: boolean;
+  /** 1.6.0 — repas simple : produits du stock utilisés (retirés du stock une fois le repas mangé). */
+  products?: MealProduct[];
+  /** 1.6.0 — repas prévu en mode Toulouse : ne touche jamais au stock, pas de rappel. */
+  away?: boolean;
+}
+
+/** Produits réservés par les repas simples prévus et pas encore mangés. */
+export function reservedProducts(plan: PlannedMeal[]): MealProduct[] {
+  return plan.filter((p) => !p.eaten && !p.away).flatMap((p) => p.products ?? []);
 }
 
 export function dayKey(t: number): string {
@@ -109,11 +118,12 @@ export type PlanAlert =
  * - plat du frigo dont la date limite tombe avant le repas ;
  * - plus de repas prévus que de portions (les derniers sont signalés), ou plat retiré de la réserve ;
  * - repas passé, à confirmer (mangé ou non).
+ * Les repas prévus en mode Toulouse sont ignorés.
  */
 export function planAlerts(plan: PlannedMeal[], dishes: StoredDish[], now: number): PlanAlert[] {
   const byId = new Map(dishes.map((d) => [d.id, d]));
   const alerts: PlanAlert[] = [];
-  const pending = plan.filter((p) => !p.eaten).sort((a, b) => mealTime(a.day, a.meal) - mealTime(b.day, b.meal));
+  const pending = plan.filter((p) => !p.eaten && !p.away).sort((a, b) => mealTime(a.day, a.meal) - mealTime(b.day, b.meal));
   const used = new Map<string, number>();
   const today = dayKey(now);
   const tomorrow = dayKey(dayStart(today) + DAY + 12 * 3600 * 1000);
@@ -147,12 +157,7 @@ export function prunePlan(plan: PlannedMeal[], now: number): PlannedMeal[] {
   return plan.filter((p) => dayStart(p.day) >= limit);
 }
 
-/** Pastille de l'onglet Semaine : plats urgents, plats à décongeler ce soir/maintenant, repas à confirmer. */
+/** Pastille de l'onglet Semaine : plats à décongeler ce soir/maintenant, repas à confirmer (les plats urgents sont sur l'onglet Stock). */
 export function weekBadge(dishes: StoredDish[], plan: PlannedMeal[], now: number): number {
-  const urgent = dishes.filter((d) => {
-    const s = dishStatus(d, now);
-    return s === 'perime' || (s === 'urgent' && d.place === 'frigo');
-  }).length;
-  const alerts = planAlerts(plan, dishes, now).filter((a) => a.kind === 'decongeler' || a.kind === 'a_confirmer').length;
-  return urgent + alerts;
+  return planAlerts(plan, dishes, now).filter((a) => a.kind === 'decongeler' || a.kind === 'a_confirmer').length;
 }

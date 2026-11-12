@@ -100,9 +100,21 @@ export interface ShoppingState {
   /** Ajouts au §7 : lignes issues de recettes retirées de la liste, et articles du garde-manger à acheter quand même. */
   removedKeys: string[];
   pantryOverrides: string[];
+  /** 1.6.0 : ce que chaque ligne cochée a ajouté au stock (pour le retirer si on la décoche). */
+  stocked: StockedLine[];
 }
 
-export const EMPTY_SHOPPING: ShoppingState = { selections: [], manualItems: [], checkedKeys: [], removedKeys: [], pantryOverrides: [] };
+/** Article entré en stock en cochant une ligne de courses. `created` : produit sans quantité créé par ce cochage. */
+export interface StockedLine {
+  key: string;
+  name: string;
+  quantity: number | null;
+  unit: Unit;
+  aisle: Aisle;
+  created?: boolean;
+}
+
+export const EMPTY_SHOPPING: ShoppingState = { selections: [], manualItems: [], checkedKeys: [], removedKeys: [], pantryOverrides: [], stocked: [] };
 
 export interface PantryItem {
   name: string;
@@ -151,6 +163,8 @@ export interface Settings {
   /** Ajouts pour le rappel de sauvegarde (F8). */
   firstLaunchAt?: number;
   backupSnoozeUntil?: number;
+  /** 1.6.0 : mode Toulouse (en déplacement) : rien ne modifie le stock. */
+  toulouse?: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

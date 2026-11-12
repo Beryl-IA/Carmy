@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  autoFill, availablePortions, canServe, dayKey, mealTime, planAlerts, prunePlan, weekBadge, weekDays, type PlannedMeal,
+  autoFill, availablePortions, canServe, dayKey, mealTime, planAlerts, prunePlan, reservedProducts, weekBadge, weekDays, type PlannedMeal,
 } from '../src/model/planning';
 import type { StoredDish } from '../src/model/stock';
 
@@ -76,7 +76,18 @@ describe('alertes', () => {
     expect(planAlerts(plan, dishes, now).map((a) => `${a.kind}:${a.meal.id}${'when' in a ? `:${a.when}` : ''}`)).toEqual([
       'a_confirmer:5', 'decongeler:2:maintenant', 'decongeler:1:ce_soir', 'perime:3', 'manque:4',
     ]);
-    expect(weekBadge(dishes, plan, now)).toBe(4); // 3 alertes + la soupe qui périme demain
+    expect(weekBadge(dishes, plan, now)).toBe(3); // à confirmer + 2 à décongeler (les plats urgents sont comptés sur l'onglet Stock)
+  });
+  it('repas simples : produits réservés tant que le repas n\'est pas mangé ; repas en mode Toulouse ignorés', () => {
+    const prod = (stockId: string) => ({ stockId, name: stockId, quantity: 1, unit: 'boite' as const, aisle: 'epicerie_salee' as const });
+    const meals: PlannedMeal[] = [
+      { id: 'a', day: '2026-11-12', meal: 'midi', title: 'Steak + haricots', products: [prod('steak'), prod('haricots')] },
+      { id: 'b', day: '2026-11-12', meal: 'soir', title: 'Thon', products: [prod('thon')], eaten: true },
+      { id: 'c', day: '2026-11-01', meal: 'midi', title: 'Cantine', away: true },
+    ];
+    expect(reservedProducts(meals).map((p) => p.stockId)).toEqual(['steak', 'haricots']);
+    // Le repas passé pris à Toulouse ne demande aucune confirmation.
+    expect(planAlerts(meals, [], new Date(2026, 10, 10, 12).getTime())).toEqual([]);
   });
   it('oublie les repas de plus de 4 semaines', () => {
     expect(prunePlan([{ id: 'a', day: '2026-10-01', meal: 'midi', title: 'x' }, { id: 'b', day: '2026-11-01', meal: 'midi', title: 'y' }], now).map((p) => p.id)).toEqual(['b']);

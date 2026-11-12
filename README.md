@@ -6,7 +6,7 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 - Fonctionne hors-ligne, sauf l'extraction par IA.
 - Cahier des charges : [`docs/cahier-des-charges-carmy.md`](docs/cahier-des-charges-carmy.md).
 
-**État : V1 (jalons J0 à J7) et V2 (V2-J1 à V2-J4, batch cooking) livrées.**
+**État : V1 (jalons J0 à J7) et V2 (V2-J1 à V2-J4, batch cooking) livrées ; 1.6.0 : onglet Stock, repas simples, mode Toulouse.**
 
 ### Feuille de route V2 (batch cooking)
 
@@ -17,6 +17,7 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 | V2-J2b | Session de batch cooking : recettes et portions, courses groupées, déroulé optimisé par l'IA (ou simple), mode cuisine de session, récapitulatif de conservation | ✅ 1.3.0 |
 | V2-J3 | Réserve : plats cuisinés (portions, frigo/congélateur, dates limites) et produits achetés (quantités), « Ranger les courses », courses limitées au manque, déduction des ingrédients en fin de cuisson | ✅ 1.4.0 |
 | V2-J4 | Planning de la semaine (midi et soir, 1 personne) : remplissage automatique depuis la réserve, rappels (décongeler, péremption, portions manquantes), confirmation des repas mangés | ✅ 1.5.0 |
+| 1.6.0 | Onglet **Stock** (ex-réserve) alimenté dès qu'on coche un article des courses ; **repas simples** hors recette avec produits du stock retirés une fois le repas mangé ; **mode Toulouse** (déplacement : le stock n'est pas modifié) | ✅ 1.6.0 |
 
 ## Fonctionnalités
 
@@ -26,9 +27,10 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 | **Ajouter** | Vidéo (Photos ou Fichiers), **captures d'écran** (jusqu'à 10 par recette, ordre modifiable, choix de la miniature), texte collé ou saisie manuelle, lien du post d'origine. Extraction par Gemini, puis **relecture obligatoire** avant enregistrement. En cas d'échec, la vidéo ou les captures restent en **file d'attente** (5 max) et se relancent en un tap. |
 | **Mode cuisine** | Plein écran, une étape à la fois, glisser pour changer d'étape, ingrédients à portée, minuteurs multiples (pause, +1 min), alarme sonore et visuelle, écran maintenu allumé. |
 | **Batch** | Session de batch cooking : 2 à 6 recettes avec leurs portions, ajout groupé aux courses, déroulé unique optimisé par l'IA (pastilles de recette par étape) ou déroulé simple sans IA, mode cuisine de la session (minuteurs, ingrédients par recette, reprise), récapitulatif des dates limites frigo/congélateur. |
-| **Semaine** | Planning du lundi au dimanche, midi et soir : plats de la réserve, recettes à cuisiner ou autre repas ; « Remplir avec la réserve » (ce qui périme d'abord, congélateur à partir du lendemain) ; rappels (sortir du congélateur la veille, plat périmé avant le repas, portions manquantes, « As-tu mangé … ? » qui retire une portion). En dessous, la réserve : plats cuisinés au frigo et au congélateur (portions, « à manger avant », −1 portion, congeler/décongeler, ajout de restes), produits achetés avec leurs quantités (modifiables), pastille des plats à manger vite. |
-| **Courses** | Recettes choisies avec portions par recette, fusion des doublons et conversion d'unités, tri par rayon, garde-manger (« Déjà à la maison »), cases à cocher sauvegardées, ajout manuel. |
-| **Réglages** | Clé API et modèle (avec tests), analyse rapide, portions par défaut, garde-manger, **sauvegarde / restauration**, aide, version. |
+| **Semaine** | Planning du lundi au dimanche, midi et soir : plats cuisinés du stock, recettes à cuisiner ou **repas simple** hors recette (nom + produits du stock et quantités utilisées, réservés puis retirés quand le repas est mangé) ; « Remplir avec le stock » (ce qui périme d'abord, congélateur à partir du lendemain) ; rappels (sortir du congélateur la veille, plat périmé avant le repas, portions manquantes, « As-tu mangé … ? »). |
+| **Stock** | Plats cuisinés au frigo et au congélateur (portions, « à manger avant », −1 portion, congeler/décongeler, ajout de restes) ; produits achetés avec leurs quantités, ajoutés automatiquement en cochant les courses, modifiables et ajoutables à la main ; interrupteur **mode Toulouse** ; pastille des plats à manger vite. |
+| **Courses** | Recettes choisies avec portions par recette, fusion des doublons et conversion d'unités, tri par rayon, garde-manger (« Déjà à la maison »), cases à cocher sauvegardées (**cocher = ajouter au stock, décocher = retirer**), ajout manuel. |
+| **Réglages** | Clé API et modèle (avec tests), analyse rapide, portions par défaut, mode Toulouse, garde-manger, **sauvegarde / restauration**, aide, version. |
 
 ## Lancer en local
 

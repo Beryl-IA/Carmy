@@ -5,6 +5,8 @@ import type { Settings } from './model/types';
 import { EMPTY_FILTER, type RecipeFilter } from './model/search';
 import { AddPage } from './pages/AddPage';
 import { SemainePage } from './pages/SemainePage';
+import { StockPage } from './pages/ReservePage';
+import { urgentCount } from './model/stock';
 import { weekBadge } from './model/planning';
 import { BatchCookPage } from './pages/BatchCookPage';
 import { BatchPage } from './pages/BatchPage';
@@ -31,8 +33,9 @@ export function App() {
   const bump = () => setDataVersion((v) => v + 1);
   const [queueCount, setQueueCount] = useState(0);
   /** V2-J3/J4 : plats à manger vite, à décongeler, repas à confirmer (pastille de l'onglet Semaine), recalculé à chaque navigation. */
-  const [urgent, setUrgent] = useState(0);
-  const refreshUrgent = () => void Promise.all([loadDishes(), loadPlanning()]).then(([d, p]) => setUrgent(weekBadge(d, p, Date.now())), () => {});
+  const [urgent, setUrgent] = useState({ semaine: 0, stock: 0 });
+  const refreshUrgent = () => void Promise.all([loadDishes(), loadPlanning()]).then(
+    ([d, p]) => setUrgent({ semaine: weekBadge(d, p, Date.now()), stock: urgentCount(d, Date.now()) }), () => {});
   /** Après un import : toutes les données ont pu changer. */
   const reloadAll = () => {
     void loadSettings().then(setSettings);
@@ -76,17 +79,18 @@ export function App() {
       {route.name === 'recette' && <RecipePage id={route.id} version={dataVersion} settings={settings} onChanged={bump} />}
       {route.name === 'modifier' && <EditPage id={route.id} onSaved={bump} />}
       {route.name === 'collections' && <CollectionsPage onChanged={bump} />}
-      {route.name === 'courses' && <ShoppingPage defaultServings={settings.defaultServings} />}
+      {route.name === 'courses' && <ShoppingPage defaultServings={settings.defaultServings} settings={settings} onSettings={updateSettings} />}
       {route.name === 'reglages' && <SettingsPage settings={settings} onChange={updateSettings} persisted={persisted} onSettings={setSettings} onImported={reloadAll} />}
       {route.name === 'aide' && <HelpPage />}
       {route.name === 'cuisine' && (
-        <CookPage key={route.id} id={route.id} step={route.step} servings={route.servings} defaultServings={settings.defaultServings} navToken={route} />
+        <CookPage key={route.id} id={route.id} step={route.step} servings={route.servings} defaultServings={settings.defaultServings} navToken={route} toulouse={settings.toulouse} />
       )}
       {route.name === 'batch' && <BatchPage settings={settings} />}
-      {route.name === 'semaine' && <SemainePage onChanged={refreshUrgent} />}
-      {route.name === 'batch-cuisine' && <BatchCookPage step={route.step} navToken={route} />}
+      {route.name === 'semaine' && <SemainePage onChanged={refreshUrgent} settings={settings} onSettings={updateSettings} />}
+      {route.name === 'stock' && <StockPage settings={settings} onSettings={updateSettings} onChanged={refreshUrgent} />}
+      {route.name === 'batch-cuisine' && <BatchCookPage step={route.step} navToken={route} toulouse={settings.toulouse} />}
       {!cooking && <TimerDock />}
-      {!cooking && <TabBar active={tab} badges={{ ajouter: queueCount, semaine: urgent }} />}
+      {!cooking && <TabBar active={tab} badges={{ ajouter: queueCount, semaine: urgent.semaine, stock: urgent.stock }} />}
     </div>
     </TimersProvider>
   );

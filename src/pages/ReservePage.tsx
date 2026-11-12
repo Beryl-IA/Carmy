@@ -1,16 +1,18 @@
-// Réserve (V2-J3), affichée sous le planning de l'onglet Semaine (V2-J4) : plats cuisinés (portions,
-// frigo/congélateur, dates limites) et produits achetés (quantités).
+// Onglet Stock (1.6.0 ; ex-réserve V2-J3) : plats cuisinés (portions, frigo/congélateur, dates limites)
+// et produits achetés (quantités), ajoutés en cochant les courses ou à la main.
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { loadPantry, loadStock, saveStock } from '../db/db';
-import { plannedPortions, type PlannedMeal } from '../model/planning';
+import { listRecipes, loadDishes, loadPantry, loadPlanning, loadStock, saveDishes, saveStock } from '../db/db';
+import { ToulouseSwitch } from '../components/ToulouseSwitch';
+import { plannedPortions, reservedProducts, type PlannedMeal } from '../model/planning';
 import { AISLE_LABELS, formatQuantity, formatUnit } from '../format';
 import { numberToInput, parseQuantity } from '../model/draft';
 import { ingredientIcon } from '../model/icons';
 import {
-  addToStock, dishStatus, DEFAULT_FRIDGE_DAYS, dishesFromPlan, eatPortion, moveDish, setStockQuantity, sortDishes, stockDisplay,
+  addToStock, dishStatus, DEFAULT_FRIDGE_DAYS, dishesFromPlan, eatPortion, moveDish, reservedOf, setStockQuantity, sortDishes, stockDisplay,
   type DishPlace, type StockItem, type StoredDish,
 } from '../model/stock';
-import { AISLES, UNITS, type Aisle, type PantryItem, type Recipe, type Unit } from '../model/types';
+import { displayQuantity } from '../model/shopping';
+import { AISLES, UNITS, type Aisle, type PantryItem, type Recipe, type Settings, type Unit } from '../model/types';
 
 const UNIT_OPTIONS: Record<Exclude<Unit, null>, string> = {
   g: 'g', kg: 'kg', ml: 'ml', cl: 'cl', l: 'l', c_cafe: 'c. à café', c_soupe: 'c. à soupe', piece: 'pièce(s)',
@@ -31,6 +33,32 @@ interface Props {
   recipes: Recipe[];
   plan: PlannedMeal[];
   onDishes: (next: StoredDish[]) => void;
+}
+
+export function StockPage({ settings, onSettings, onChanged }: { settings: Settings; onSettings: (s: Settings) => void; onChanged: () => void }) {
+  const [dishes, setDishes] = useState<StoredDish[] | null>(null);
+  const [plan, setPlan] = useState<PlannedMeal[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+
+  useEffect(() => {
+    void Promise.all([loadDishes(), loadPlanning(), listRecipes()]).then(([d, p, r]) => {
+      setDishes(d);
+      setPlan(p);
+      setRecipes(r);
+    });
+  }, []);
+
+  if (!dishes) return <main class="page" aria-busy="true" />;
+  return (
+    <main class="page stack">
+      <header class="page-header">
+        <h1>Stock</h1>
+      </header>
+      <ToulouseSwitch settings={settings} onChange={onSettings} />
+      <ReserveSections dishes={dishes} recipes={recipes} plan={plan}
+        onDishes={(next) => { setDishes(next); void saveDishes(next).then(onChanged); }} />
+    </main>
+  );
 }
 
 export function ReserveSections({ dishes, recipes, plan, onDishes: updateDishes }: Props) {
@@ -58,6 +86,14 @@ export function ReserveSections({ dishes, recipes, plan, onDishes: updateDishes 
     const q = parseQuantity(raw);
     if (q === undefined) return alert('Quantité illisible (exemples : 2, 1,5, 1/2).');
     updateStock(setStockQuantity(stock, s.id, q, q === null ? null : d.unit, Date.now()));
+  };
+
+  const reserved = reservedProducts(plan);
+  const reservedText = (s: StockItem) => {
+    const r = reservedOf(s, reserved);
+    if (r === 'tout' || (s.base === null && r > 0)) return 'prévu pour un repas';
+    if (!r) return '';
+    return `dont ${qty(displayQuantity(Math.min(r, s.base ?? r), s.family, new Set()))} pour un repas prévu`;
   };
 
   const fridge = sortDishes(dishes.filter((d) => d.place === 'frigo'));
@@ -95,8 +131,8 @@ export function ReserveSections({ dishes, recipes, plan, onDishes: updateDishes 
             <button type="button" class="icon-btn" aria-label={`Décongeler ${d.title} (à manger sous 24 h)`} title="Décongeler"
               onClick={() => updateDishes(moveDish(dishes, d.id, 'frigo', null, Date.now()))}>🧊</button>
           )}
-          <button type="button" class="icon-btn danger" aria-label={`Retirer ${d.title} de la réserve`}
-            onClick={() => { if (confirm(`Retirer « ${d.title} » (${d.portions} portion${d.portions > 1 ? 's' : ''}) de la réserve ?`)) updateDishes(dishes.filter((x) => x.id !== d.id)); }}>✕</button>
+          <button type="button" class="icon-btn danger" aria-label={`Retirer ${d.title} du stock`}
+            onClick={() => { if (confirm(`Retirer « ${d.title} » (${d.portions} portion${d.portions > 1 ? 's' : ''}) du stock ?`)) updateDishes(dishes.filter((x) => x.id !== d.id)); }}>✕</button>
         </div>
       </li>
     );
@@ -104,7 +140,6 @@ export function ReserveSections({ dishes, recipes, plan, onDishes: updateDishes 
 
   return (
     <>
-      <h2 class="section-title">Réserve</h2>
       <section class="card stack">
         <h2 class="card-title">🧊 Frigo {fridge.length > 0 && <span class="muted small">· {portions(fridge)} portion{portions(fridge) > 1 ? 's' : ''}</span>}</h2>
         {fridge.length ? <ul class="list flush">{fridge.map(dishRow)}</ul> : <p class="muted small">Aucun plat cuisiné au frigo.</p>}
@@ -121,7 +156,7 @@ export function ReserveSections({ dishes, recipes, plan, onDishes: updateDishes 
       <section class="card stack">
         <h2 class="card-title">Produits</h2>
         {byAisle.length === 0 ? (
-          <p class="muted small">Coche tes articles dans Courses puis touche « Ranger les courses » : ils arrivent ici avec leurs quantités, et se déduisent quand tu cuisines.</p>
+          <p class="muted small">Coche tes articles dans Courses : ils arrivent ici avec leurs quantités, et se déduisent quand tu cuisines ou manges un repas simple. Tu peux aussi en ajouter à la main.</p>
         ) : (
           byAisle.map((g) => (
             <div key={g.aisle} class="stock-group">
@@ -130,11 +165,14 @@ export function ReserveSections({ dishes, recipes, plan, onDishes: updateDishes 
                 {g.items.map((s) => (
                   <li key={s.id} class="stock-row">
                     <span class="shop-icon" aria-hidden="true">{ingredientIcon(s.name, s.aisle)}</span>
-                    <span class="grow">{s.name}</span>
+                    <span class="grow">
+                      {s.name}
+                      {reservedText(s) && <span class="sources">{reservedText(s)}</span>}
+                    </span>
                     <button type="button" class="link-btn stock-qty" aria-label={`Modifier la quantité de ${s.name}`} onClick={() => editQuantity(s)}>
                       {s.base === null ? 'en stock' : qty(stockDisplay(s))}
                     </button>
-                    <button type="button" class="icon-btn danger" aria-label={`${s.name} : terminé, retirer de la réserve`} onClick={() => updateStock(stock.filter((x) => x.id !== s.id))}>✕</button>
+                    <button type="button" class="icon-btn danger" aria-label={`${s.name} : terminé, retirer du stock`} onClick={() => updateStock(stock.filter((x) => x.id !== s.id))}>✕</button>
                   </li>
                 ))}
               </ul>
@@ -249,7 +287,7 @@ function StockForm({ onAdd }: { onAdd: (e: { name: string; quantity: number | nu
       {error && <p class="error small" role="alert">{error}</p>}
       <div class="row">
         <button type="button" class="btn ghost" onClick={() => setOpen(false)}>Fermer</button>
-        <button type="button" class="btn grow" disabled={!name.trim()} onClick={submit}>Ajouter à la réserve</button>
+        <button type="button" class="btn grow" disabled={!name.trim()} onClick={submit}>Ajouter au stock</button>
       </div>
     </div>
   );

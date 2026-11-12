@@ -14,9 +14,10 @@ interface Props {
   defaultServings: number;
   /** Change à chaque navigation, même vers la même étape (ex. depuis le rappel de minuteur). */
   navToken?: unknown;
+  toulouse?: boolean;
 }
 
-export function CookPage({ id, step = 0, servings: routeServings, defaultServings, navToken }: Props) {
+export function CookPage({ id, step = 0, servings: routeServings, defaultServings, navToken, toulouse }: Props) {
   const [recipe, setRecipe] = useState<Recipe | null | undefined>(undefined);
   const servings = routeServings ?? defaultServings;
   const [finishing, setFinishing] = useState(false);
@@ -54,7 +55,7 @@ export function CookPage({ id, step = 0, servings: routeServings, defaultServing
       onFinish={() => setFinishing(true)}
     />
     {finishing && (
-      <CookedSheet mode="recipe" items={[{ recipe, servings, ingredients }]} onDone={exit} onCancel={() => setFinishing(false)} />
+      <CookedSheet mode="recipe" items={[{ recipe, servings, ingredients }]} onDone={exit} onCancel={() => setFinishing(false)} toulouse={toulouse} />
     )}
     </>
   );

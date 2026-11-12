@@ -33,6 +33,7 @@ describe('router', () => {
     expect(tabOf({ name: 'batch-cuisine' })).toBe('batch');
     expect(tabOf({ name: 'batch' })).toBe('batch');
     expect(parseHash('#/semaine')).toEqual({ name: 'semaine' });
-    expect(parseHash('#/reserve')).toEqual({ name: 'semaine' });
+    expect(parseHash('#/reserve')).toEqual({ name: 'stock' });
+    expect(parseHash('#/stock')).toEqual({ name: 'stock' });
   });
 });

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildShoppingList } from '../src/model/shopping';
 import {
-  addToStock, availableFor, consumeFromStock, defaultSplit, dishStatus, dishesFromPlan, eatPortion, moveDish, setStockQuantity,
-  stockDisplay, urgentCount, type StockItem, type StoredDish,
+  addToStock, availableFor, consumeFromStock, consumeProducts, defaultSplit, dishStatus, dishesFromPlan, eatPortion, moveDish, removeFromStock,
+  reservedOf, setStockQuantity, stockDisplay, urgentCount, type MealProduct, type StockItem, type StoredDish,
 } from '../src/model/stock';
 import { EMPTY_SHOPPING, type Recipe } from '../src/model/types';
 
@@ -109,5 +109,55 @@ describe('réserve : plats cuisinés', () => {
     const d = dishesFromPlan([{ recipeId: 'c', title: 'Chili', fridge: 2, freezer: 3, fridgeDays: 4, freezerMonths: 3 }, { title: 'Soupe', fridge: 0, freezer: 0, fridgeDays: null, freezerMonths: null }], now, id);
     expect(d.map((x) => [x.place, x.portions])).toEqual([['frigo', 2], ['congelateur', 3]]);
     expect(d[0]?.expiresAt).toBe(now + 4 * DAY);
+  });
+});
+
+describe('1.6.0 : courses cochées et repas simples', () => {
+  const rice = base.find((s) => s.name === 'riz')!;
+  const onion = base.find((s) => s.name === 'oignon')!;
+  const salt = base.find((s) => s.name === 'sel')!;
+
+  it('décocher un article retire du stock ce que le cochage avait ajouté', () => {
+    const bought = { name: 'riz', quantity: 300, unit: 'g' as const, aisle: 'epicerie_salee' as const };
+    const after = addToStock(base, [bought], now, id);
+    expect(removeFromStock(after, [bought], now).find((s) => s.name === 'riz')!.base).toBe(1000);
+    // Produit qui n'existait pas avant : il disparaît.
+    const pasta = { name: 'pâtes', quantity: 500, unit: 'g' as const, aisle: 'epicerie_salee' as const };
+    expect(removeFromStock(addToStock(base, [pasta], now, id), [pasta], now)).toHaveLength(base.length);
+  });
+  it('un produit sans quantité n\'est retiré que s\'il a été créé par le cochage', () => {
+    const entry = { name: 'sel', quantity: null, unit: null, aisle: 'condiments_epices' as const };
+    expect(removeFromStock(base, [entry], now).some((s) => s.name === 'sel')).toBe(true);
+    expect(removeFromStock(base, [{ ...entry, created: true }], now).some((s) => s.name === 'sel')).toBe(false);
+  });
+  it('la liste garde la ligne cochée : son propre ajout ne compte pas comme « déjà à la maison »', () => {
+    const recipe = { id: 'r', title: 'Riz', servings: 1, ingredients: [{ name: 'riz', quantity: 1200, unit: 'g', aisle: 'epicerie_salee' }], steps: [], tags: [], collectionIds: [], sourceType: 'manual', createdAt: 0, updatedAt: 0 } as unknown as Recipe;
+    const state = { ...EMPTY_SHOPPING, selections: [{ recipeId: 'r', servings: 1 }] };
+    const line = buildShoppingList([recipe], state, [], base).sections[0]!.lines[0]!;
+    expect(line.quantity).toBe(200); // 1 kg déjà en stock
+    const entry = { name: line.name, quantity: line.quantity, unit: line.unit, aisle: line.aisle };
+    const stock = addToStock(base, [entry], now, id);
+    const checked = { ...state, checkedKeys: [line.key], stocked: [{ key: line.key, ...entry }] };
+    expect(buildShoppingList([recipe], checked, [], stock).pantry).toHaveLength(1); // sans correction, la ligne disparaîtrait
+    const kept = buildShoppingList([recipe], checked, [], removeFromStock(stock, checked.stocked, now)).sections[0]!.lines[0]!;
+    expect([kept.quantity, kept.checked]).toEqual([200, true]);
+  });
+  it('un repas simple mangé retire la quantité choisie, ou le produit entier', () => {
+    const products: MealProduct[] = [
+      { stockId: rice.id, name: 'riz', quantity: 250, unit: 'g', aisle: 'epicerie_salee' },
+      { stockId: onion.id, name: 'oignon', quantity: 3, unit: 'piece', aisle: 'fruits_legumes' },
+      { stockId: salt.id, name: 'sel', quantity: null, unit: null, aisle: 'condiments_epices' },
+      { stockId: 'disparu', name: 'thon', quantity: 1, unit: 'boite', aisle: 'epicerie_salee' },
+    ];
+    const s = consumeProducts(base, products, now);
+    expect(s.map((x) => `${x.name}:${x.base}`)).toEqual(['riz:750', 'lait:1000']);
+    // Produit supprimé puis racheté (nouvel identifiant) : retrouvé par son nom.
+    expect(consumeProducts(base, [{ ...products[0]!, stockId: 'ancien' }], now).find((x) => x.name === 'riz')!.base).toBe(750);
+  });
+  it('calcule la part réservée d\'un produit', () => {
+    const p = (stockId: string, quantity: number | null, unit: MealProduct['unit']): MealProduct => ({ stockId, name: 'x', quantity, unit, aisle: 'autre' });
+    expect(reservedOf(rice, [p(rice.id, 200, 'g'), p(rice.id, 0.3, 'kg'), p(onion.id, 1, 'piece')])).toBe(500);
+    expect(reservedOf(salt, [p(salt.id, null, null)])).toBe('tout');
+    expect(reservedOf(onion, [])).toBe(0);
   });
 });

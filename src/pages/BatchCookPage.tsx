@@ -8,7 +8,7 @@ import { navigate, replaceRoute } from '../router';
 import { BATCH_TIMER_ID } from '../timers/TimersContext';
 import { RecipeBadge } from './BatchPage';
 
-export function BatchCookPage({ step, navToken }: { step?: number; navToken?: unknown }) {
+export function BatchCookPage({ step, navToken, toulouse }: { step?: number; navToken?: unknown; toulouse?: boolean }) {
   const [data, setData] = useState<{ session: BatchSession | null; items: BatchRecipe[] } | undefined>(undefined);
   const [finishing, setFinishing] = useState(false);
 
@@ -54,7 +54,7 @@ export function BatchCookPage({ step, navToken }: { step?: number; navToken?: un
       onFinish={() => setFinishing(true)}
       finishLabel="Terminer ✓"
     />
-    {finishing && <CookedSheet mode="batch" items={items} onDone={finish} onCancel={() => setFinishing(false)} />}
+    {finishing && <CookedSheet mode="batch" items={items} onDone={finish} onCancel={() => setFinishing(false)} toulouse={toulouse} />}
     </>
   );
 }
