@@ -87,13 +87,19 @@ async function draw(file: Blob, maxSide: number, quality: number, crop = false):
  * vers 300 à 600 Ko, ce qui permet d'envoyer 10 captures en une seule requête.
  * En cas d'échec de décodage, renvoie le fichier d'origine (Gemini lit PNG, JPEG, WebP, HEIC).
  */
-export async function prepareCapture(file: Blob): Promise<Blob> {
+export async function prepareCapture(file: Blob, maxSide = 2048): Promise<Blob> {
   try {
-    return await draw(file, 2048, 0.85);
+    return await draw(file, maxSide, 0.85);
   } catch {
     return file;
   }
 }
+
+/**
+ * 1.9.0 : un ticket de caisse photographé en entier est long et ses caractères sont petits :
+ * on garde plus de pixels (3072 px sur le côté le plus long).
+ */
+export const RECEIPT_MAX_SIDE = 3072;
 
 /** Miniature de la fiche : JPEG 400 × 500 px, recadrée au format des cartes. */
 export async function captureThumbnail(file: Blob): Promise<Blob | null> {

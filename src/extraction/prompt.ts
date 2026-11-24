@@ -138,3 +138,56 @@ export const BATCH_SCHEMA = {
   required: ['totalMinutes', 'steps'],
   propertyOrdering: ['totalMinutes', 'steps'],
 } as const;
+
+/** 1.9.0 : ticket de caisse ou commande drive → produits à ranger dans le stock. */
+export const RECEIPT_INSTRUCTION = `Tu lis un ticket de caisse de supermarché ou une commande drive / livraison (photo ou capture d'écran) et tu listes les produits achetés, pour les ranger dans le stock d'une cuisine.
+
+Règles :
+- Une ligne par produit acheté. Ignore tout ce qui n'est pas un produit : sacs, consignes, remises, bons de réduction, points ou cagnotte de fidélité, sous-totaux, total, TVA, moyen de paiement, frais de service ou de livraison, en-tête et pied du ticket, interface de l'appli (heure, boutons, bannières).
+- Un produit retiré, remplacé ou indisponible dans une commande drive n'est pas compté ; un produit de remplacement l'est.
+- "label" : le libellé tel qu'il est écrit sur le ticket (ex. « FROM BLC 0% 1KG »).
+- "name" : nom canonique du produit pour une cuisine, en français, en minuscules, au singulier sauf usage (« pâtes », « lentilles »), SANS marque, SANS conditionnement ni quantité : « FROM BLC 0% 1KG » → « fromage blanc » ; « LDL OEUFS PA X6 » → « œuf » ; « PANZANI SPAGH 500G » → « spaghetti ». Décode les abréviations des tickets. Si on te donne une liste de noms déjà utilisés, reprends exactement l'un d'eux quand il s'agit du même produit.
+- "quantity" et "unit" : la quantité TOTALE achetée.
+  - Poids ou volume indiqué (sur le libellé ou par la pesée) : multiplie par le nombre d'articles et exprime-le en g, kg, ml, cl ou l (« 2 x PATES 500G » → 1 kg ; « TOMATE 0,856 kg » → 856 g ; « LAIT 6X1L » → 6 l).
+  - Produit compté (œufs, yaourts, fruits ou légumes à la pièce, baguette, boîte de conserve sans poids lisible…) : nombre total de pièces, unité "piece" (« OEUFS X6 » acheté 2 fois → 12 piece).
+  - Si rien ne permet de connaître la quantité, mets quantity null et unit null. N'invente pas de poids.
+- Utilise uniquement ces unités : ${UNITS.join(', ')}, ou null.
+- "aisle" : rayon parmi ${AISLES.join(', ')}.
+- "food" : true pour un aliment ou une boisson ; false pour un produit non alimentaire (hygiène, entretien, cuisine jetable, animaux…).
+- Si plusieurs images sont fournies, elles montrent les parties successives d'UN SEUL ticket ou d'UNE SEULE commande : ne compte pas deux fois une ligne visible sur deux images qui se chevauchent.
+- Si l'image ne montre ni ticket de caisse ni commande de courses, renvoie isReceipt: false et une liste vide.`;
+
+export const RECEIPT_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    isReceipt: { type: 'BOOLEAN' },
+    items: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          label: { type: 'STRING' },
+          name: { type: 'STRING' },
+          quantity: { type: 'NUMBER', nullable: true },
+          unit: { type: 'STRING', enum: [...UNITS], nullable: true },
+          aisle: { type: 'STRING', enum: [...AISLES] },
+          food: { type: 'BOOLEAN' },
+        },
+        required: ['label', 'name', 'quantity', 'unit', 'aisle', 'food'],
+        propertyOrdering: ['label', 'name', 'quantity', 'unit', 'aisle', 'food'],
+      },
+    },
+  },
+  required: ['isReceipt', 'items'],
+  propertyOrdering: ['isReceipt', 'items'],
+} as const;
+
+/** Consigne d'un ticket ; `knownNames` = produits déjà connus (stock, ingrédients des recettes) pour garder les mêmes noms. */
+export function userPromptReceipt(count: number, knownNames: string[]): string {
+  const what = count > 1
+    ? `Ces ${count} images, dans l'ordre, montrent les parties successives d'un même ticket de caisse ou d'une même commande drive. Liste les produits achetés.`
+    : 'Liste les produits achetés sur ce ticket de caisse ou cette commande drive.';
+  return knownNames.length
+    ? `${what}\n\nNoms de produits déjà utilisés dans l'appli (reprends-les à l'identique pour un même produit) : ${knownNames.join(', ')}.`
+    : what;
+}

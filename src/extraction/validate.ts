@@ -22,7 +22,7 @@ const UNIT_ALIASES: Record<string, Exclude<Unit, null>> = {
   pincée: 'pincee', gousses: 'gousse', tranches: 'tranche', sachets: 'sachet', boîte: 'boite', boites: 'boite',
 };
 
-function toNumberOrNull(v: unknown): number | null {
+export function toNumberOrNull(v: unknown): number | null {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
   if (typeof v === 'string' && v.trim() !== '') {
     const n = Number(v.replace(',', '.'));
@@ -36,7 +36,7 @@ function toPositiveIntOrNull(v: unknown): number | null {
   return n !== null && n >= 0 ? Math.round(n) : null;
 }
 
-function normalizeUnit(v: unknown, warnings: string[], ctx: string): Unit {
+export function normalizeUnit(v: unknown, warnings: string[], ctx: string): Unit {
   if (v === null || v === undefined || v === '') return null;
   if (typeof v !== 'string') {
     warnings.push(`${ctx} : unité ignorée (${JSON.stringify(v)})`);
@@ -50,7 +50,7 @@ function normalizeUnit(v: unknown, warnings: string[], ctx: string): Unit {
   return null;
 }
 
-function normalizeAisle(v: unknown, warnings: string[], ctx: string): Aisle {
+export function normalizeAisle(v: unknown, warnings: string[], ctx: string): Aisle {
   if (typeof v === 'string' && (AISLES as readonly string[]).includes(v)) return v as Aisle;
   warnings.push(`${ctx} : rayon inconnu « ${String(v)} » remplacé par « autre »`);
   return 'autre';

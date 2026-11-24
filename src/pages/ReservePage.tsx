@@ -2,6 +2,7 @@
 // et produits achetés (quantités), ajoutés en cochant les courses ou à la main.
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { listRecipes, loadDishes, loadPantry, loadPlanning, loadStock, saveDishes, saveStock } from '../db/db';
+import { ReceiptScanner } from '../components/ReceiptScanner';
 import { ToulouseSwitch } from '../components/ToulouseSwitch';
 import { plannedPortions, reservedProducts, type PlannedMeal } from '../model/planning';
 import { AISLE_LABELS, formatQuantity, formatUnit } from '../format';
@@ -11,6 +12,7 @@ import {
   addToStock, dishStatus, DEFAULT_FRIDGE_DAYS, dishesFromPlan, eatPortion, moveDish, reservedOf, setStockQuantity, sortDishes, stockDisplay,
   type DishPlace, type StockItem, type StoredDish,
 } from '../model/stock';
+import { receiptSummary } from '../model/receipt';
 import { displayQuantity } from '../model/shopping';
 import { AISLES, UNITS, type Aisle, type PantryItem, type Recipe, type Settings, type Unit } from '../model/types';
 
@@ -32,6 +34,7 @@ interface Props {
   dishes: StoredDish[];
   recipes: Recipe[];
   plan: PlannedMeal[];
+  settings: Settings;
   onDishes: (next: StoredDish[]) => void;
 }
 
@@ -55,15 +58,18 @@ export function StockPage({ settings, onSettings, onChanged }: { settings: Setti
         <h1>Stock</h1>
       </header>
       <ToulouseSwitch settings={settings} onChange={onSettings} />
-      <ReserveSections dishes={dishes} recipes={recipes} plan={plan}
+      <ReserveSections dishes={dishes} recipes={recipes} plan={plan} settings={settings}
         onDishes={(next) => { setDishes(next); void saveDishes(next).then(onChanged); }} />
     </main>
   );
 }
 
-export function ReserveSections({ dishes, recipes, plan, onDishes: updateDishes }: Props) {
+export function ReserveSections({ dishes, recipes, plan, settings, onDishes: updateDishes }: Props) {
   const [stock, setStock] = useState<StockItem[]>([]);
   const [pantry, setPantry] = useState<PantryItem[]>([]);
+  /** 1.9.0 : scanner de ticket ouvert, et message après l'ajout. */
+  const [scanning, setScanning] = useState(false);
+  const [scanDone, setScanDone] = useState('');
   const now = Date.now();
 
   useEffect(() => {
@@ -140,6 +146,24 @@ export function ReserveSections({ dishes, recipes, plan, onDishes: updateDishes 
 
   return (
     <>
+      {scanning ? (
+        <ReceiptScanner
+          settings={settings}
+          stock={stock}
+          recipes={recipes}
+          pantry={pantry}
+          onClose={() => setScanning(false)}
+          onAdd={(entries) => {
+            setScanDone(receiptSummary(entries, stock));
+            updateStock(addToStock(stock, entries, Date.now(), newId));
+            setScanning(false);
+          }}
+        />
+      ) : (
+        <button type="button" class="btn secondary" onClick={() => { setScanDone(''); setScanning(true); }}>📷 Scanner un ticket ou une commande drive</button>
+      )}
+      {scanDone && !scanning && <p class="ok small" role="status">✓ {scanDone}</p>}
+
       <section class="card stack">
         <h2 class="card-title">🧊 Frigo {fridge.length > 0 && <span class="muted small">· {portions(fridge)} portion{portions(fridge) > 1 ? 's' : ''}</span>}</h2>
         {fridge.length ? <ul class="list flush">{fridge.map(dishRow)}</ul> : <p class="muted small">Aucun plat cuisiné au frigo.</p>}
@@ -156,7 +180,7 @@ export function ReserveSections({ dishes, recipes, plan, onDishes: updateDishes 
       <section class="card stack">
         <h2 class="card-title">Produits</h2>
         {byAisle.length === 0 ? (
-          <p class="muted small">Coche tes articles dans Courses : ils arrivent ici avec leurs quantités, et se déduisent quand tu cuisines ou manges un repas simple. Tu peux aussi en ajouter à la main.</p>
+          <p class="muted small">Coche tes articles dans Courses ou scanne ton ticket de caisse : ils arrivent ici avec leurs quantités, et se déduisent quand tu cuisines ou manges un repas simple. Tu peux aussi en ajouter à la main.</p>
         ) : (
           byAisle.map((g) => (
             <div key={g.aisle} class="stock-group">

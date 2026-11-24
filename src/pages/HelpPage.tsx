@@ -66,6 +66,7 @@ export function HelpPage() {
         <h2>Stock</h2>
         <ul>
           <li><strong>Produits</strong> : en magasin, <strong>coche un article dans Courses et il entre aussitôt dans le stock</strong> avec la quantité de la liste ; décoche-le et il en ressort. Si le paquet était plus gros (1 kg pour 300 g nécessaires), touche la quantité dans Stock pour la corriger.</li>
+          <li><strong>📷 Scanner un ticket ou une commande drive</strong> : prends ton ticket de caisse en photo (à plat, bien éclairé, en plusieurs photos s'il est long) ou choisis des captures de ta commande drive. L'IA lit les produits et leurs quantités ; tu décoches, corriges, puis touches <strong>Ajouter au stock</strong>. Les produits non alimentaires arrivent décochés. Si tu as déjà coché ces articles dans Courses, décoche-les pour ne pas les compter deux fois.</li>
           <li>Tu peux aussi ajouter un produit à la main (<strong>+ Ajouter un produit</strong>), toucher une quantité pour la corriger, ou ✕ quand un produit est terminé.</li>
           <li>Les courses tiennent compte du stock : ce que tu as déjà passe dans « Déjà à la maison », et seule la quantité manquante reste à acheter.</li>
           <li>Quand tu termines une recette ou une session, Carmy propose de <strong>déduire les ingrédients utilisés</strong> (300 g de riz : 1 kg → 700 g) et de <strong>ranger les portions</strong> au frigo ou au congélateur.</li>
@@ -78,7 +79,7 @@ export function HelpPage() {
         <h2>Mode Toulouse</h2>
         <ul>
           <li>Pour tes déplacements : active l'interrupteur <strong>📍 Mode Toulouse</strong> en haut de l'onglet Stock (ou dans Réglages).</li>
-          <li>Tant qu'il est actif, <strong>rien ne modifie le stock</strong> : les articles cochés dans Courses n'y entrent pas, les repas mangés n'en retirent rien, et la fin d'une recette ne range ni ne déduit rien.</li>
+          <li>Tant qu'il est actif, <strong>rien ne modifie le stock</strong> : les articles cochés dans Courses n'y entrent pas, le scan de ticket est désactivé, les repas mangés n'en retirent rien, et la fin d'une recette ne range ni ne déduit rien.</li>
           <li>Les repas que tu planifies sont marqués 📍 et ne demandent pas de confirmation. Un bandeau te rappelle que le mode est actif : <strong>désactive-le à ton retour</strong>.</li>
         </ul>
       </section>
@@ -114,7 +115,7 @@ export function HelpPage() {
       <section class="card stack">
         <h2>Tes données</h2>
         <ul>
-          <li>Tout est enregistré uniquement sur cet iPhone. Rien n'est envoyé ailleurs, sauf la vidéo, les captures ou le texte analysés par Google.</li>
+          <li>Tout est enregistré uniquement sur cet iPhone. Rien n'est envoyé ailleurs, sauf la vidéo, les captures, les tickets ou le texte analysés par Google.</li>
           <li><strong>Exporte une sauvegarde régulièrement</strong> (Réglages › Sauvegarde) et range-la dans iCloud Drive : si l'appli est supprimée, tes recettes le sont aussi.</li>
           <li>Hors-ligne, tout fonctionne sauf l'extraction par IA.</li>
           <li>Quand une nouvelle version est publiée, un bandeau « Nouvelle version disponible » apparaît : touche Mettre à jour.</li>

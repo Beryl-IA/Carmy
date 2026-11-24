@@ -1,5 +1,8 @@
 // Implémentation Gemini de ExtractionProvider (F2), appelée directement depuis le navigateur.
-import { BATCH_INSTRUCTION, BATCH_SCHEMA, DETAILS_INSTRUCTION, DETAILS_SCHEMA, RESPONSE_SCHEMA, SYSTEM_INSTRUCTION, USER_PROMPT_TEXT, USER_PROMPT_VIDEO, userPromptImages } from './prompt';
+import {
+  BATCH_INSTRUCTION, BATCH_SCHEMA, DETAILS_INSTRUCTION, DETAILS_SCHEMA, RECEIPT_INSTRUCTION, RECEIPT_SCHEMA, RESPONSE_SCHEMA, SYSTEM_INSTRUCTION,
+  USER_PROMPT_TEXT, USER_PROMPT_VIDEO, userPromptImages, userPromptReceipt,
+} from './prompt';
 import {
   ExtractionError,
   type ExtractionInput,
@@ -12,6 +15,7 @@ import {
 } from './types';
 import { InvalidRecipeJson, parseExtractedRecipe, parseRecipeDetails } from './validate';
 import { InvalidBatchPlan, batchPayload, parseBatchPlan, type BatchPlan, type BatchRecipe, type BatchSelection } from '../model/batch';
+import { InvalidReceipt, parseReceipt, type ParsedReceipt } from '../model/receipt';
 
 /** Consigne système et schéma de réponse d'une requête. */
 interface RequestSpec {
@@ -21,6 +25,7 @@ interface RequestSpec {
 const EXTRACT: RequestSpec = { system: SYSTEM_INSTRUCTION, schema: RESPONSE_SCHEMA };
 const DETAILS: RequestSpec = { system: DETAILS_INSTRUCTION, schema: DETAILS_SCHEMA };
 const BATCH: RequestSpec = { system: BATCH_INSTRUCTION, schema: BATCH_SCHEMA };
+const RECEIPT: RequestSpec = { system: RECEIPT_INSTRUCTION, schema: RECEIPT_SCHEMA };
 
 const API = 'https://generativelanguage.googleapis.com';
 
@@ -204,25 +209,7 @@ export class GeminiProvider implements ExtractionProvider {
       } else if (input.kind === 'images') {
         if (input.files.length === 0) throw new ExtractionError('api', 'Aucune capture à analyser.');
         bytes = input.files.reduce((n, f) => n + f.size, 0);
-        phase('envoi');
-        const many = input.files.length > 1;
-        if (!this.config.forceFilesApi && bytes <= INLINE_MAX_BYTES) {
-          transport = 'inline';
-          for (const [i, f] of input.files.entries()) {
-            if (many) parts.push({ text: `Capture ${i + 1} :` });
-            parts.push({ inlineData: { mimeType: geminiImageMime(f), data: await blobToBase64(f) } });
-          }
-        } else {
-          transport = 'files_api';
-          for (const [i, f] of input.files.entries())
-            uploaded.push(await this.uploadResumable(f, geminiImageMime(f), `capture-${i + 1}`, signal));
-          phase('traitement');
-          for (const [i, f] of uploaded.entries()) {
-            const active = await this.waitActive(f, signal);
-            if (many) parts.push({ text: `Capture ${i + 1} :` });
-            parts.push({ fileData: { mimeType: active.mimeType || 'image/jpeg', fileUri: active.uri } });
-          }
-        }
+        transport = await this.imageParts(input.files, 'Capture', parts, uploaded, phase, signal);
         parts.push({ text: userPromptImages(input.files.length) });
       } else {
         parts.push({ text: USER_PROMPT_TEXT + input.text });
@@ -259,6 +246,69 @@ export class GeminiProvider implements ExtractionProvider {
         e.durationsMs = durations;
       }
       throw e;
+    } finally {
+      for (const f of uploaded) void this.deleteFile(f.name);
+    }
+  }
+
+  /**
+   * Images en ligne (base64) ou, au-delà de ~14 Mo, via la Files API ; chacune précédée de « <prefix> n : » s'il y en a plusieurs.
+   * Les fichiers envoyés sont ajoutés à `uploaded` pour être supprimés ensuite.
+   */
+  private async imageParts(
+    files: Blob[], prefix: string, parts: Part[], uploaded: GeminiFile[],
+    phase: (p: ExtractionPhase) => void, signal?: AbortSignal,
+  ): Promise<'inline' | 'files_api'> {
+    const bytes = files.reduce((n, f) => n + f.size, 0);
+    const many = files.length > 1;
+    phase('envoi');
+    if (!this.config.forceFilesApi && bytes <= INLINE_MAX_BYTES) {
+      for (const [i, f] of files.entries()) {
+        if (many) parts.push({ text: `${prefix} ${i + 1} :` });
+        parts.push({ inlineData: { mimeType: geminiImageMime(f), data: await blobToBase64(f) } });
+      }
+      return 'inline';
+    }
+    const start = uploaded.length;
+    for (const [i, f] of files.entries())
+      uploaded.push(await this.uploadResumable(f, geminiImageMime(f), `${prefix.toLowerCase()}-${i + 1}`, signal));
+    phase('traitement');
+    for (const [i, f] of uploaded.slice(start).entries()) {
+      const active = await this.waitActive(f, signal);
+      if (many) parts.push({ text: `${prefix} ${i + 1} :` });
+      parts.push({ fileData: { mimeType: active.mimeType || 'image/jpeg', fileUri: active.uri } });
+    }
+    return 'files_api';
+  }
+
+  /** 1.9.0 : produits achetés lus sur un ticket de caisse ou une commande drive (une ou plusieurs images). */
+  async extractReceipt(
+    files: Blob[], knownNames: string[], options: ExtractionOptions = {},
+  ): Promise<ParsedReceipt & { model: string; totalTokens?: number }> {
+    if (files.length === 0) throw new ExtractionError('api', 'Aucune image à analyser.');
+    // Pleine résolution : les libellés d'un ticket sont petits.
+    this.mediaIsVideo = false;
+    this.onReceive = options.onReceive;
+    this.onRetry = options.onRetry;
+    const { signal, onPhase } = options;
+    const uploaded: GeminiFile[] = [];
+    const parts: Part[] = [];
+    try {
+      await this.imageParts(files, 'Image', parts, uploaded, (p) => onPhase?.(p), signal);
+      parts.push({ text: userPromptReceipt(files.length, knownNames) });
+      let lastError: InvalidReceipt | null = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        onPhase?.('analyse');
+        const { text, totalTokens } = await this.generate(parts, signal, RECEIPT);
+        onPhase?.('mise_en_forme');
+        try {
+          return { ...parseReceipt(text), model: this.model, totalTokens };
+        } catch (e) {
+          if (!(e instanceof InvalidReceipt)) throw e;
+          lastError = e;
+        }
+      }
+      throw new ExtractionError('reponse_invalide', `Réponse de l'IA inexploitable après 2 essais : ${lastError?.message ?? ''}`);
     } finally {
       for (const f of uploaded) void this.deleteFile(f.name);
     }

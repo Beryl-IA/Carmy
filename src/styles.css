@@ -447,3 +447,20 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .slot-option { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 8px 0; min-height: 52px; justify-content: center; }
 .slot-option[aria-pressed='true'] span:first-child { color: var(--terracotta-fonce); font-weight: 700; }
 .slot-option:focus-visible { outline: 3px solid var(--safran); outline-offset: 2px; border-radius: 8px; }
+
+/* ---------- 1.9.0 : ticket de caisse ou commande drive ---------- */
+.receipt-top { display: flex; align-items: center; gap: 8px; }
+.receipt-top .icon-btn { flex: none; }
+.receipt-pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.picker-btn { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px 12px; font-size: 16px; }
+.picker-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.receipt-shots { list-style: none; margin: 0; padding: 0 0 4px; display: flex; gap: 10px; overflow-x: auto; }
+.receipt-shots li { position: relative; flex: none; width: 96px; }
+.receipt-shots img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 10px; border: 1px solid var(--bord); }
+.receipt-shots .icon-btn { position: absolute; right: 4px; bottom: 4px; width: 36px; height: 36px; font-size: 15px; }
+.receipt-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.receipt-head { display: flex; align-items: center; gap: 10px; }
+.receipt-check { width: 24px; height: 24px; accent-color: var(--terracotta); flex: none; }
+.receipt-line.off { opacity: 0.55; }
+.receipt-line.off .receipt-head input[type='text'] { text-decoration: line-through; }
+.receipt-label { overflow-wrap: anywhere; }

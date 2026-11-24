@@ -2,11 +2,11 @@
 
 Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vidéo de recette (Instagram, TikTok), des captures d'écran, un texte collé ou une saisie manuelle en **fiche structurée**, la range dans une **bibliothèque**, propose un **mode cuisine** avec minuteurs et génère une **liste de courses** fusionnée par rayon.
 
-- Gratuite, sans serveur : tout est stocké sur l'appareil (IndexedDB). Seul appel réseau : l'API Gemini, avec la clé de l'utilisateur.
+- Gratuite, sans serveur : tout est stocké sur l'appareil (IndexedDB). Seul appel réseau : l'API Gemini, avec la clé de l'utilisateur (recettes et tickets de caisse).
 - Fonctionne hors-ligne, sauf l'extraction par IA.
 - Cahier des charges : [`docs/cahier-des-charges-carmy.md`](docs/cahier-des-charges-carmy.md).
 
-**État : V1 (jalons J0 à J7) et V2 (V2-J1 à V2-J4, batch cooking) livrées ; 1.6.0 : onglet Stock, repas simples, mode Toulouse ; 1.7.0 : onglet Batch retiré.**
+**État : V1 (jalons J0 à J7) et V2 (V2-J1 à V2-J4, batch cooking) livrées ; 1.6.0 : onglet Stock, repas simples, mode Toulouse ; 1.7.0 : onglet Batch retiré ; 1.9.0 : scan de ticket de caisse ou de commande drive.**
 
 ### Feuille de route V2 (batch cooking)
 
@@ -18,6 +18,7 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 | V2-J3 | Réserve : plats cuisinés (portions, frigo/congélateur, dates limites) et produits achetés (quantités), « Ranger les courses », courses limitées au manque, déduction des ingrédients en fin de cuisson | ✅ 1.4.0 |
 | V2-J4 | Planning de la semaine (midi et soir, 1 personne) : remplissage automatique depuis la réserve, rappels (décongeler, péremption, portions manquantes), confirmation des repas mangés | ✅ 1.5.0 |
 | 1.6.0 | Onglet **Stock** (ex-réserve) alimenté dès qu'on coche un article des courses ; **repas simples** hors recette avec produits du stock retirés une fois le repas mangé ; **mode Toulouse** (déplacement : le stock n'est pas modifié) | ✅ 1.6.0 |
+| 1.9.0 | **Scan de ticket de caisse ou de commande drive** (photos ou captures) : Gemini lit les produits et les quantités totales, relecture (cocher, corriger nom, quantité, unité, rayon), puis ajout au stock avec cumul des quantités | ✅ 1.9.0 |
 
 ## Fonctionnalités
 
@@ -27,7 +28,7 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 | **Ajouter** | Vidéo (Photos ou Fichiers), **captures d'écran** (jusqu'à 10 par recette, ordre modifiable, choix de la miniature), texte collé ou saisie manuelle, lien du post d'origine. Extraction par Gemini, puis **relecture obligatoire** avant enregistrement. En cas d'échec, la vidéo ou les captures restent en **file d'attente** (5 max) et se relancent en un tap. |
 | **Mode cuisine** | Plein écran, une étape à la fois, glisser pour changer d'étape, ingrédients à portée, minuteurs multiples (pause, +1 min), alarme sonore et visuelle, écran maintenu allumé. |
 | **Semaine** | Planning du lundi au dimanche, midi et soir : plats cuisinés du stock, recettes à cuisiner ou **repas simple** hors recette (nom + produits du stock et quantités utilisées, réservés puis retirés quand le repas est mangé) ; « Remplir avec le stock » (ce qui périme d'abord, congélateur à partir du lendemain) ; rappels (sortir du congélateur la veille, plat périmé avant le repas, portions manquantes, « As-tu mangé … ? »). |
-| **Stock** | Plats cuisinés au frigo et au congélateur (portions, « à manger avant », −1 portion, congeler/décongeler, ajout de restes) ; produits achetés avec leurs quantités, ajoutés automatiquement en cochant les courses, modifiables et ajoutables à la main ; interrupteur **mode Toulouse** ; pastille des plats à manger vite. |
+| **Stock** | Plats cuisinés au frigo et au congélateur (portions, « à manger avant », −1 portion, congeler/décongeler, ajout de restes) ; produits achetés avec leurs quantités, ajoutés automatiquement en cochant les courses, modifiables et ajoutables à la main, ou lus sur un **ticket de caisse ou une commande drive** (📷 photo ou captures, relecture avant ajout) ; interrupteur **mode Toulouse** ; pastille des plats à manger vite. |
 | **Courses** | Recettes choisies avec portions par recette, fusion des doublons et conversion d'unités, tri par rayon, garde-manger (« Déjà à la maison »), cases à cocher sauvegardées (**cocher = ajouter au stock, décocher = retirer**), ajout manuel. |
 | **Réglages** | Clé API et modèle (avec tests), analyse rapide, portions par défaut, mode Toulouse, garde-manger, **sauvegarde / restauration**, aide, version. |
 
@@ -103,7 +104,7 @@ src/
   config.ts            nom de l'appli
   app.tsx, router.ts   coquille, onglets, navigation par ancre (#/…)
   model/               logique pure, testée : types (§7), brouillon de relecture, portions,
-                       recherche, liste de courses (§9), minuteurs, sauvegarde
+                       recherche, liste de courses (§9), minuteurs, sauvegarde, stock, ticket de caisse
   extraction/          ExtractionProvider, implémentation Gemini, prompt et schéma (§8), validation
   db/db.ts             IndexedDB (idb) : recettes, collections, réglages, courses, garde-manger, file d'attente
   media/               miniature vidéo, alarme (WAV généré), Wake Lock
@@ -133,6 +134,7 @@ Signalés au fil des jalons et validés à l'usage :
 - **Session de batch cooking** (V2-J2b) : nouvel onglet « Batch » (5 onglets). Une seule session à la fois, stockée dans `kv` (`batch`), **non incluse dans la sauvegarde** (données de travail ; la réserve du V2-J3 le sera). Le déroulé IA est validé (chaque recette doit apparaître) avec un nouvel essai si besoin. Le mode cuisine est désormais un composant générique (`CookView`) partagé par une recette et une session ; les minuteurs de session ont l'identifiant `batch`.
 - **Réserve** (V2-J3) : nouvel onglet (6 onglets). Produits (`kv` `stock`) stockés en unité de base de leur famille (g, ml, nombre), cumulés par nom + famille d'unité comme la liste de courses ; plats (`kv` `dishes`) avec lieu et date limite. « Ranger les courses » (bouton plutôt qu'ajout automatique à la coche, choix de l'utilisatrice) ajoute les articles cochés avec une quantité modifiable. La liste de courses n'affiche que la quantité manquante et range dans « Déjà à la maison » ce qui est couvert. En fin de cuisson (recette ou session), une feuille propose la répartition frigo/congélateur (2 repas par jour pour 1 personne) et la déduction des ingrédients, désactivable. Le **garde-manger est conservé** comme liste de basiques jamais décomptés. Réserve incluse dans la sauvegarde (champs facultatifs, format 1 inchangé).
 - **Planning** (V2-J4) : l'onglet Réserve devient **« Semaine »** (planning en haut, réserve en dessous ; `#/reserve` reste valable), pour garder 6 onglets — choix de l'utilisatrice. Repas en `kv` `planning` (jour local, midi/soir, lien facultatif vers un plat ou une recette, état mangé), oubliés après 4 semaines, inclus dans la sauvegarde (fusion : un créneau déjà prévu n'est jamais remplacé). Remplissage automatique déterministe, sans IA. Un repas n'est marqué mangé qu'avec confirmation (pas de décompte automatique à l'heure du repas).
+- **Ticket de caisse ou commande drive** (1.9.0) : bouton « 📷 Scanner un ticket » en haut de l'onglet Stock. Photos (appareil photo) ou captures, recompressées en JPEG 3072 px maximum (un ticket long garde ses petits caractères), envoyées en une requête Gemini (`extractReceipt`, schéma `RECEIPT_SCHEMA`). Gemini renvoie pour chaque produit le libellé du ticket, un nom canonique sans marque, la **quantité totale** (multipliée par le nombre d'articles, poids pesé, sinon pièces) et le rayon ; on lui envoie les noms déjà connus (stock, ingrédients des recettes, garde-manger, 400 au plus) pour qu'il les reprenne et que les quantités se cumulent. Relecture obligatoire (`model/receipt.ts`) : produits non alimentaires décochés, indication « s'ajoute au stock existant » ou « autre unité : ajouté à part ». Ajout par `addToStock`. Désactivé en mode Toulouse. Les images ne sont pas conservées et un échec ne passe pas par la file d'attente.
 
 ## Bilan du jalon 1 (09/11/2026)
 
