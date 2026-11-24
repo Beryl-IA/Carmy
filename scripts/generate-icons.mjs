@@ -19,7 +19,7 @@ const browser = await chromium.launch();
 const page = await browser.newPage();
 for (const t of targets) {
   await page.setViewportSize({ width: t.size, height: t.size });
-  await page.setContent(`<html><body style="margin:0;background:#D9532B;display:grid;place-items:center;width:${t.size}px;height:${t.size}px;overflow:hidden">
+  await page.setContent(`<html><body style="margin:0;background:#5B2A4A;display:grid;place-items:center;width:${t.size}px;height:${t.size}px;overflow:hidden">
     <div style="width:${t.size * t.scale}px;height:${t.size * t.scale}px">${svg.replace('<svg ', '<svg width="100%" height="100%" ')}</div></body></html>`);
   await page.screenshot({ path: out(t.file), omitBackground: false });
 }
