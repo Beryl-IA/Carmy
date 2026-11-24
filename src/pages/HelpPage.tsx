@@ -65,7 +65,8 @@ export function HelpPage() {
       <section class="card stack">
         <h2>Stock</h2>
         <ul>
-          <li><strong>Produits</strong> : en magasin, <strong>coche un article dans Courses et il entre aussitôt dans le stock</strong> avec la quantité de la liste ; décoche-le et il en ressort. Si le paquet était plus gros (1 kg pour 300 g nécessaires), touche la quantité dans Stock pour la corriger.</li>
+          <li><strong>Produits</strong> : en magasin, <strong>coche un article dans Courses et il entre aussitôt dans le stock</strong> avec la quantité de la liste ; décoche-le et il en ressort. Si le paquet était plus gros (1 kg pour 300 g nécessaires), touche le produit dans Stock pour le corriger.</li>
+          <li><strong>Modifier un produit</strong> : touche-le pour changer son <strong>nom</strong>, son <strong>emoji</strong> (grille d'emojis ou clavier ; « Auto » remet l'emoji choisi par Carmy), sa <strong>quantité</strong>, son unité et son rayon. Quantité 0 : le produit est retiré. Si tu le renommes comme un produit déjà en stock, les quantités s'additionnent.</li>
           <li><strong>📷 Scanner un ticket ou une commande drive</strong> : prends ton ticket de caisse en photo (à plat, bien éclairé, en plusieurs photos s'il est long) ou choisis des captures de ta commande drive. L'IA lit les produits et leurs quantités ; tu décoches, corriges, puis touches <strong>Ajouter au stock</strong>. Les produits non alimentaires arrivent décochés. Si tu as déjà coché ces articles dans Courses, décoche-les pour ne pas les compter deux fois.</li>
           <li>Tu peux aussi ajouter un produit à la main (<strong>+ Ajouter un produit</strong>), toucher une quantité pour la corriger, ou ✕ quand un produit est terminé.</li>
           <li>Les courses tiennent compte du stock : ce que tu as déjà passe dans « Déjà à la maison », et seule la quantité manquante reste à acheter.</li>

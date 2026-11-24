@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildShoppingList } from '../src/model/shopping';
 import {
-  addToStock, availableFor, consumeFromStock, consumeProducts, defaultSplit, dishStatus, dishesFromPlan, eatPortion, moveDish, removeFromStock,
+  addToStock, availableFor, consumeFromStock, consumeProducts, defaultSplit, dishStatus, dishesFromPlan, eatPortion, editStockItem, moveDish, removeFromStock,
   reservedOf, setStockQuantity, stockDisplay, urgentCount, type MealProduct, type StockItem, type StoredDish,
 } from '../src/model/stock';
+import { firstGrapheme, ICON_CHOICES } from '../src/model/icons';
 import { EMPTY_SHOPPING, type Recipe } from '../src/model/types';
 
 let n = 0;
@@ -159,5 +160,42 @@ describe('1.6.0 : courses cochées et repas simples', () => {
     expect(reservedOf(rice, [p(rice.id, 200, 'g'), p(rice.id, 0.3, 'kg'), p(onion.id, 1, 'piece')])).toBe(500);
     expect(reservedOf(salt, [p(salt.id, null, null)])).toBe('tout');
     expect(reservedOf(onion, [])).toBe(0);
+  });
+});
+
+describe('stock : modification manuelle (1.10.0)', () => {
+  const riz = base.find((x) => x.name === 'riz')!;
+  it('change le nom, l\'emoji, la quantité, l\'unité et le rayon', () => {
+    const s = editStockItem(base, riz.id, { name: '  Riz basmati ', icon: '🍙', quantity: 750, unit: 'g', aisle: 'autre' }, now + 1);
+    const r = s.find((x) => x.id === riz.id)!;
+    expect(r).toMatchObject({ name: 'riz basmati', icon: '🍙', family: 'masse', base: 750, aisle: 'autre', updatedAt: now + 1 });
+    expect(s).toHaveLength(base.length);
+  });
+  it('un emoji vide revient à l\'emoji automatique', () => {
+    const withIcon = editStockItem(base, riz.id, { name: 'riz', icon: '🍙', quantity: 1, unit: 'kg', aisle: 'epicerie_salee' }, now);
+    const s = editStockItem(withIcon, riz.id, { name: 'riz', icon: '', quantity: 1, unit: 'kg', aisle: 'epicerie_salee' }, now);
+    expect(s.find((x) => x.id === riz.id)!.icon).toBeUndefined();
+  });
+  it('quantité vide : présent sans suivi ; 0 : retiré', () => {
+    expect(editStockItem(base, riz.id, { name: 'riz', icon: '', quantity: null, unit: 'kg', aisle: 'epicerie_salee' }, now).find((x) => x.id === riz.id))
+      .toMatchObject({ family: 'sans_quantite', base: null });
+    expect(editStockItem(base, riz.id, { name: 'riz', icon: '', quantity: 0, unit: 'kg', aisle: 'epicerie_salee' }, now).some((x) => x.id === riz.id)).toBe(false);
+  });
+  it('renommé comme un autre produit de même famille : fusion des quantités', () => {
+    const stock = addToStock(base, [{ name: 'riz rond', quantity: 500, unit: 'g', aisle: 'epicerie_salee' }], now, id);
+    const rond = stock.find((x) => x.name === 'riz rond')!;
+    const s = editStockItem(stock, rond.id, { name: 'Riz', icon: '', quantity: 500, unit: 'g', aisle: 'epicerie_salee' }, now);
+    expect(s).toHaveLength(stock.length - 1);
+    expect(stockDisplay(s.find((x) => x.name === 'riz')!)).toEqual({ quantity: 1.5, unit: 'kg' });
+  });
+  it('ignore un nom vide ou un produit inconnu', () => {
+    expect(editStockItem(base, riz.id, { name: '  ', icon: '', quantity: 1, unit: 'kg', aisle: 'autre' }, now)).toBe(base);
+    expect(editStockItem(base, 'inconnu', { name: 'x', icon: '', quantity: 1, unit: 'kg', aisle: 'autre' }, now)).toBe(base);
+  });
+  it('emoji : garde le premier graphème, propose une liste sans doublon', () => {
+    expect(firstGrapheme(' 🧑‍🍳🍅 ')).toBe('🧑‍🍳');
+    expect(firstGrapheme('')).toBe('');
+    expect(new Set(ICON_CHOICES).size).toBe(ICON_CHOICES.length);
+    expect(ICON_CHOICES).toContain('🍚');
   });
 });

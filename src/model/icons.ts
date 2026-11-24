@@ -90,3 +90,15 @@ export function ingredientIcon(name: string, aisle: Aisle): string {
   for (const [re, icon] of COMPILED) if (re.test(n)) return icon;
   return AISLE_ICONS[aisle];
 }
+
+/** 1.10.0 : emojis proposés quand on choisit l'icône d'un produit à la main (sans doublon). */
+export const ICON_CHOICES: string[] = [...new Set([...RULES.map(([, icon]) => icon), ...Object.values(AISLE_ICONS)])];
+
+/** Garde le premier emoji (graphème) d'une saisie ; chaîne vide si rien n'est saisi. */
+export function firstGrapheme(text: string): string {
+  const t = text.trim();
+  if (!t) return '';
+  const Seg = (Intl as { Segmenter?: new (l?: string, o?: { granularity: 'grapheme' }) => { segment: (s: string) => Iterable<{ segment: string }> } }).Segmenter;
+  if (Seg) for (const { segment } of new Seg(undefined, { granularity: 'grapheme' }).segment(t)) return segment;
+  return Array.from(t)[0] ?? '';
+}

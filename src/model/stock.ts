@@ -12,6 +12,8 @@ export interface StockItem {
   base: number | null;
   aisle: Aisle;
   updatedAt: number;
+  /** 1.10.0 : emoji choisi à la main ; absent : emoji automatique (selon le nom et le rayon). */
+  icon?: string;
 }
 
 export type DishPlace = 'frigo' | 'congelateur';
@@ -130,6 +132,38 @@ export function setStockQuantity(stock: StockItem[], id: string, quantity: numbe
     const family = unitFamily(unit, quantity);
     return [{ ...s, family, base: quantity === null ? null : toBase(quantity, unit), updatedAt: now }];
   });
+}
+
+/** Ce que l'on modifie à la main sur un produit du stock. */
+export interface StockEdit {
+  name: string;
+  /** Vide : emoji automatique. */
+  icon: string;
+  quantity: number | null;
+  unit: Unit;
+  aisle: Aisle;
+}
+
+/**
+ * Modifie un produit (nom, emoji, quantité, unité, rayon). Une quantité nulle ou négative le retire.
+ * Si le nouveau nom et la famille d'unité correspondent à un autre produit, les deux sont fusionnés
+ * (quantités cumulées) pour ne pas créer de doublon.
+ */
+export function editStockItem(stock: StockItem[], id: string, edit: StockEdit, now: number): StockItem[] {
+  const current = stock.find((s) => s.id === id);
+  const name = edit.name.trim().toLowerCase();
+  if (!current || !name) return stock;
+  if (edit.quantity !== null && edit.quantity <= 0) return stock.filter((s) => s.id !== id);
+  const family = unitFamily(edit.unit, edit.quantity);
+  const base = edit.quantity === null ? null : toBase(edit.quantity, edit.unit);
+  const icon = edit.icon.trim();
+  const next: StockItem = { id, name, family, base, aisle: edit.aisle, updatedAt: now };
+  if (icon) next.icon = icon;
+  const twin = stock.find((s) => s.id !== id && stockKey(s) === lineKey(name, family));
+  if (!twin) return stock.map((s) => (s.id === id ? next : s));
+  const merged: StockItem = { ...next, id: twin.id, base: twin.base === null || base === null ? twin.base ?? base : twin.base + base };
+  if (!icon && twin.icon) merged.icon = twin.icon;
+  return stock.flatMap((s) => (s.id === id ? [] : s.id === twin.id ? [merged] : [s]));
 }
 
 export interface StockChange {

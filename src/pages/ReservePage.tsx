@@ -7,10 +7,10 @@ import { ToulouseSwitch } from '../components/ToulouseSwitch';
 import { plannedPortions, reservedProducts, type PlannedMeal } from '../model/planning';
 import { AISLE_LABELS, formatQuantity, formatUnit } from '../format';
 import { numberToInput, parseQuantity } from '../model/draft';
-import { ingredientIcon } from '../model/icons';
+import { firstGrapheme, ICON_CHOICES, ingredientIcon } from '../model/icons';
 import {
-  addToStock, dishStatus, DEFAULT_FRIDGE_DAYS, dishesFromPlan, eatPortion, moveDish, reservedOf, setStockQuantity, sortDishes, stockDisplay,
-  type DishPlace, type StockItem, type StoredDish,
+  addToStock, dishStatus, DEFAULT_FRIDGE_DAYS, dishesFromPlan, eatPortion, editStockItem, moveDish, reservedOf, sortDishes, stockDisplay,
+  type DishPlace, type StockEdit, type StockItem, type StoredDish,
 } from '../model/stock';
 import { receiptSummary } from '../model/receipt';
 import { displayQuantity } from '../model/shopping';
@@ -85,14 +85,8 @@ export function ReserveSections({ dishes, recipes, plan, settings, onDishes: upd
     void saveStock(next);
   };
 
-  const editQuantity = (s: StockItem) => {
-    const d = stockDisplay(s);
-    const raw = prompt(`Quantité de ${s.name}${d.unit ? ` (en ${UNIT_OPTIONS[d.unit as Exclude<Unit, null>]})` : ''} — 0 pour le retirer`, numberToInput(d.quantity));
-    if (raw === null) return;
-    const q = parseQuantity(raw);
-    if (q === undefined) return alert('Quantité illisible (exemples : 2, 1,5, 1/2).');
-    updateStock(setStockQuantity(stock, s.id, q, q === null ? null : d.unit, Date.now()));
-  };
+  /** 1.10.0 : produit en cours de modification (nom, emoji, quantité). */
+  const [editing, setEditing] = useState<string | null>(null);
 
   const reserved = reservedProducts(plan);
   const reservedText = (s: StockItem) => {
@@ -186,15 +180,24 @@ export function ReserveSections({ dishes, recipes, plan, settings, onDishes: upd
             <div key={g.aisle} class="stock-group">
               <h3 class="sheet-group">{AISLE_LABELS[g.aisle]}</h3>
               <ul class="list flush">
-                {g.items.map((s) => (
+                {g.items.map((s) => editing === s.id ? (
+                  <li key={s.id} class="stock-edit">
+                    <StockItemEditor
+                      item={s}
+                      onCancel={() => setEditing(null)}
+                      onSave={(edit) => { updateStock(editStockItem(stock, s.id, edit, Date.now())); setEditing(null); }}
+                      onDelete={() => { updateStock(stock.filter((x) => x.id !== s.id)); setEditing(null); }}
+                    />
+                  </li>
+                ) : (
                   <li key={s.id} class="stock-row">
-                    <span class="shop-icon" aria-hidden="true">{ingredientIcon(s.name, s.aisle)}</span>
-                    <span class="grow">
-                      {s.name}
-                      {reservedText(s) && <span class="sources">{reservedText(s)}</span>}
-                    </span>
-                    <button type="button" class="link-btn stock-qty" aria-label={`Modifier la quantité de ${s.name}`} onClick={() => editQuantity(s)}>
-                      {s.base === null ? 'en stock' : qty(stockDisplay(s))}
+                    <button type="button" class="stock-open" aria-label={`Modifier ${s.name} (nom, emoji, quantité)`} onClick={() => setEditing(s.id)}>
+                      <span class="shop-icon" aria-hidden="true">{s.icon || ingredientIcon(s.name, s.aisle)}</span>
+                      <span class="grow">
+                        {s.name}
+                        {reservedText(s) && <span class="sources">{reservedText(s)}</span>}
+                      </span>
+                      <span class="stock-qty">{s.base === null ? 'en stock' : qty(stockDisplay(s))}</span>
                     </button>
                     <button type="button" class="icon-btn danger" aria-label={`${s.name} : terminé, retirer du stock`} onClick={() => updateStock(stock.filter((x) => x.id !== s.id))}>✕</button>
                   </li>
@@ -275,6 +278,68 @@ function DishForm({ recipes, onAdd }: { recipes: Recipe[]; onAdd: (d: StoredDish
         </button>
       </div>
     </section>
+  );
+}
+
+/** 1.10.0 : modification d'un produit du stock (emoji, nom, quantité, unité, rayon). */
+function StockItemEditor({ item, onSave, onCancel, onDelete }: { item: StockItem; onSave: (e: StockEdit) => void; onCancel: () => void; onDelete: () => void }) {
+  const shown = stockDisplay(item);
+  const [name, setName] = useState(item.name);
+  const [icon, setIcon] = useState(item.icon ?? '');
+  const [q, setQ] = useState(numberToInput(shown.quantity));
+  const [unit, setUnit] = useState<Unit>(shown.unit);
+  const [aisle, setAisle] = useState<Aisle>(item.aisle);
+  const [picking, setPicking] = useState(false);
+  const [error, setError] = useState('');
+  const auto = ingredientIcon(name, aisle);
+  const submit = () => {
+    const quantity = parseQuantity(q);
+    if (!name.trim()) return setError('Donne un nom au produit.');
+    if (quantity === undefined) return setError('Quantité illisible (exemples : 2, 1,5, 1/2).');
+    const chosen = firstGrapheme(icon);
+    onSave({ name, icon: chosen === auto && !item.icon ? '' : chosen, quantity, unit: quantity === null ? null : unit, aisle });
+  };
+  return (
+    <form class="stack grow" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+      <div class="ing-line">
+        <button type="button" class="icon-btn stock-emoji" aria-label="Choisir l'emoji" aria-expanded={picking} onClick={() => setPicking(!picking)}>
+          {firstGrapheme(icon) || auto}
+        </button>
+        <input class="grow" type="text" aria-label="Nom du produit" autocapitalize="off" value={name} onInput={(e) => setName(e.currentTarget.value)} />
+      </div>
+      {picking && (
+        <div class="stack emoji-picker">
+          <div class="ing-line">
+            <input class="grow" type="text" aria-label="Emoji (tape-le ou choisis-le ci-dessous)" placeholder="Tape un emoji…" value={icon}
+              onInput={(e) => setIcon(firstGrapheme(e.currentTarget.value))} />
+            <button type="button" class="btn ghost small" disabled={!icon} onClick={() => setIcon('')}>Auto ({auto})</button>
+          </div>
+          <div class="emoji-grid" role="group" aria-label="Emojis proposés">
+            {ICON_CHOICES.map((e) => (
+              <button key={e} type="button" class={`emoji-choice${firstGrapheme(icon) === e ? ' active' : ''}`} aria-label={`Emoji ${e}`}
+                onClick={() => { setIcon(e); setPicking(false); }}>{e}</button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div class="ing-line">
+        <input class="qty-input" type="text" inputMode="decimal" aria-label="Quantité" placeholder="Qté" value={q} onInput={(e) => setQ(e.currentTarget.value)} />
+        <select class="unit-select" aria-label="Unité" value={unit ?? ''} onChange={(e) => setUnit((e.currentTarget.value || null) as Unit)}>
+          <option value="">—</option>
+          {UNITS.map((u) => <option key={u} value={u}>{UNIT_OPTIONS[u]}</option>)}
+        </select>
+        <select class="grow" aria-label="Rayon" value={aisle} onChange={(e) => setAisle(e.currentTarget.value as Aisle)}>
+          {AISLES.map((a) => <option key={a} value={a}>{AISLE_LABELS[a]}</option>)}
+        </select>
+      </div>
+      <p class="muted small">Quantité vide : présent sans suivi ; 0 : retiré du stock.</p>
+      {error && <p class="error small" role="alert">{error}</p>}
+      <div class="row">
+        <button type="button" class="icon-btn danger" aria-label={`Retirer ${item.name} du stock`} onClick={onDelete}>✕</button>
+        <button type="button" class="btn ghost" onClick={onCancel}>Annuler</button>
+        <button type="submit" class="btn grow" disabled={!name.trim()}>Enregistrer</button>
+      </div>
+    </form>
   );
 }
 
