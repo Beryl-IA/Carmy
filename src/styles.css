@@ -145,15 +145,16 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
-  display: grid; grid-template-columns: repeat(6, 1fr);
+  display: grid; grid-template-columns: repeat(5, 1fr);
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); padding: 4px env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: rgb(255 247 236 / 94%); border-top: 1px solid var(--bord);
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
 }
 .tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 44px; color: var(--brun-doux); text-decoration: none; font-size: 12px; font-weight: 600; }
 .tab.active { color: var(--terracotta-fonce); }
-.tab-add svg { background: var(--terracotta); color: #fff; border-radius: 10px; padding: 3px; }
-.tab-add.active svg { background: var(--terracotta-fonce); }
+/* 1.8.0 : bouton Ajouter dans l'en-tête de l'onglet Recettes. */
+.add-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.add-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--safran); color: var(--brun); font-size: 12px; font-weight: 800; display: inline-grid; place-items: center; }
 @media (max-width: 400px) { .tab { font-size: 11px; } }
 
 /* 1.6.0 : mode Toulouse et repas simples */

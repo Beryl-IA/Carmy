@@ -9,6 +9,8 @@ import { filterRecipes, tagsByFrequency, type RecipeFilter } from '../model/sear
 import type { Collection, Recipe, Settings } from '../model/types';
 
 interface Props {
+  /** Recettes en cours d'ajout (extraction ou relecture en attente). */
+  queueCount: number;
   version: number;
   filter: RecipeFilter;
   onFilter: (f: RecipeFilter) => void;
@@ -19,7 +21,7 @@ interface Props {
   onSnooze: (s: Settings) => void;
 }
 
-export function RecipesPage({ version, filter, onFilter, settings, onSettings, onSnooze }: Props) {
+export function RecipesPage({ queueCount, version, filter, onFilter, settings, onSettings, onSnooze }: Props) {
   const [recipes, setRecipes] = useState<Recipe[] | null>(null);
   const [collections, setCollections] = useState<Collection[]>([]);
 
@@ -60,6 +62,9 @@ export function RecipesPage({ version, filter, onFilter, settings, onSettings, o
         <img src={`${import.meta.env.BASE_URL}icons/favicon.svg`} alt="" width={36} height={36} />
         <h1>{APP_NAME}</h1>
         {recipes && recipes.length > 0 && <span class="muted count">{recipes.length} recette{recipes.length > 1 ? 's' : ''}</span>}
+        <a class={`btn small add-btn ${recipes && recipes.length > 0 ? '' : 'header-action'}`} href="#/ajouter" aria-label={queueCount ? `Ajouter une recette (${queueCount} en attente)` : 'Ajouter une recette'}>
+          + Ajouter{queueCount ? <span class="add-badge" aria-hidden="true">{queueCount}</span> : null}
+        </a>
       </header>
 
       {!installHidden && (

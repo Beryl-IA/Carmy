@@ -334,6 +334,7 @@ export function AddPage({ settings, onSaved, onQueueChange }: Props) {
   const elapsed = formatDuration(Math.max(0, Math.round((now - startedAt) / 1000)));
   return (
     <main class="page stack">
+      <a class="back" href="#/recettes">‹ Recettes</a>
       <header class="page-header">
         <h1>Ajouter une recette</h1>
       </header>

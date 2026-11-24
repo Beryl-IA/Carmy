@@ -72,7 +72,7 @@ export function App() {
         <AddPage settings={settings} onSaved={bump} onQueueChange={setQueueCount} />
       </div>
       {route.name === 'recettes' && (
-        <RecipesPage version={dataVersion} filter={filter} onFilter={setFilter} settings={settings} onSettings={setSettings} onSnooze={updateSettings} />
+        <RecipesPage queueCount={queueCount} version={dataVersion} filter={filter} onFilter={setFilter} settings={settings} onSettings={setSettings} onSnooze={updateSettings} />
       )}
       {route.name === 'recette' && <RecipePage id={route.id} version={dataVersion} settings={settings} onChanged={bump} />}
       {route.name === 'modifier' && <EditPage id={route.id} onSaved={bump} />}
@@ -86,7 +86,7 @@ export function App() {
       {route.name === 'semaine' && <SemainePage onChanged={refreshUrgent} settings={settings} onSettings={updateSettings} />}
       {route.name === 'stock' && <StockPage settings={settings} onSettings={updateSettings} onChanged={refreshUrgent} />}
       {!cooking && <TimerDock />}
-      {!cooking && <TabBar active={tab} badges={{ ajouter: queueCount, semaine: urgent.semaine, stock: urgent.stock }} />}
+      {!cooking && <TabBar active={tab} badges={{ recettes: queueCount, semaine: urgent.semaine, stock: urgent.stock }} />}
     </div>
     </TimersProvider>
   );

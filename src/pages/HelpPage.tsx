@@ -41,7 +41,7 @@ export function HelpPage() {
       <section class="card stack">
         <h2>Ajouter une recette</h2>
         <ul>
-          <li><strong>Vidéo</strong> : enregistre d'abord le reel ou le TikTok dans Photos (bouton de téléchargement de l'appli d'origine), puis Ajouter › Vidéo. Colle le lien du post pour le retrouver plus tard.</li>
+          <li><strong>Vidéo</strong> : enregistre d'abord le reel ou le TikTok dans Photos (bouton de téléchargement de l'appli d'origine), puis Recettes › + Ajouter › Vidéo. Colle le lien du post pour le retrouver plus tard.</li>
           <li><strong>Captures</strong> : choisis une ou plusieurs captures d'écran dans Photos (jusqu'à 10), par exemple les ingrédients sur l'une et les étapes sur les suivantes. Vérifie l'ordre avec ‹ et › : l'IA les lit dans cet ordre. Touche la capture qui servira de miniature (★).</li>
           <li><strong>Texte</strong> : copie la légende ou la description du post.</li>
           <li><strong>À la main</strong> : sans IA, fonctionne hors-ligne.</li>
