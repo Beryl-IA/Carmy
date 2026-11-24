@@ -6,7 +6,7 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 - Fonctionne hors-ligne, sauf l'extraction par IA.
 - Cahier des charges : [`docs/cahier-des-charges-carmy.md`](docs/cahier-des-charges-carmy.md).
 
-**État : V1 (jalons J0 à J7) et V2 (V2-J1 à V2-J4, batch cooking) livrées ; 1.6.0 : onglet Stock, repas simples, mode Toulouse.**
+**État : V1 (jalons J0 à J7) et V2 (V2-J1 à V2-J4, batch cooking) livrées ; 1.6.0 : onglet Stock, repas simples, mode Toulouse ; 1.7.0 : onglet Batch retiré.**
 
 ### Feuille de route V2 (batch cooking)
 
@@ -26,7 +26,6 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 | **Recettes** | Bibliothèque en cartes, recherche (titre, ingrédients, tags, sans accents), filtres par collection et par tags, collections (créer, renommer, supprimer). Fiche : icône par ingrédient, **conservation** (frigo, congélateur) et **valeurs nutritionnelles** par portion estimées par l'IA, portions ajustables avec quantités recalculées, ajout aux courses, mode cuisine, modification, suppression. |
 | **Ajouter** | Vidéo (Photos ou Fichiers), **captures d'écran** (jusqu'à 10 par recette, ordre modifiable, choix de la miniature), texte collé ou saisie manuelle, lien du post d'origine. Extraction par Gemini, puis **relecture obligatoire** avant enregistrement. En cas d'échec, la vidéo ou les captures restent en **file d'attente** (5 max) et se relancent en un tap. |
 | **Mode cuisine** | Plein écran, une étape à la fois, glisser pour changer d'étape, ingrédients à portée, minuteurs multiples (pause, +1 min), alarme sonore et visuelle, écran maintenu allumé. |
-| **Batch** | Session de batch cooking : 2 à 6 recettes avec leurs portions, ajout groupé aux courses, déroulé unique optimisé par l'IA (pastilles de recette par étape) ou déroulé simple sans IA, mode cuisine de la session (minuteurs, ingrédients par recette, reprise), récapitulatif des dates limites frigo/congélateur. |
 | **Semaine** | Planning du lundi au dimanche, midi et soir : plats cuisinés du stock, recettes à cuisiner ou **repas simple** hors recette (nom + produits du stock et quantités utilisées, réservés puis retirés quand le repas est mangé) ; « Remplir avec le stock » (ce qui périme d'abord, congélateur à partir du lendemain) ; rappels (sortir du congélateur la veille, plat périmé avant le repas, portions manquantes, « As-tu mangé … ? »). |
 | **Stock** | Plats cuisinés au frigo et au congélateur (portions, « à manger avant », −1 portion, congeler/décongeler, ajout de restes) ; produits achetés avec leurs quantités, ajoutés automatiquement en cochant les courses, modifiables et ajoutables à la main ; interrupteur **mode Toulouse** ; pastille des plats à manger vite. |
 | **Courses** | Recettes choisies avec portions par recette, fusion des doublons et conversion d'unités, tri par rayon, garde-manger (« Déjà à la maison »), cases à cocher sauvegardées (**cocher = ajouter au stock, décocher = retirer**), ajout manuel. |

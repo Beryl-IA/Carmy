@@ -8,8 +8,6 @@ import { SemainePage } from './pages/SemainePage';
 import { StockPage } from './pages/ReservePage';
 import { urgentCount } from './model/stock';
 import { weekBadge } from './model/planning';
-import { BatchCookPage } from './pages/BatchCookPage';
-import { BatchPage } from './pages/BatchPage';
 import { CollectionsPage } from './pages/CollectionsPage';
 import { CookPage } from './pages/CookPage';
 import { HelpPage } from './pages/HelpPage';
@@ -64,7 +62,7 @@ export function App() {
     );
   if (!settings) return <div class="app loading" aria-busy="true" />;
 
-  const cooking = route.name === 'cuisine' || route.name === 'batch-cuisine';
+  const cooking = route.name === 'cuisine';
   return (
     <TimersProvider cooking={cooking}>
     <div class={`app ${cooking ? 'cooking' : ''}`}>
@@ -85,10 +83,8 @@ export function App() {
       {route.name === 'cuisine' && (
         <CookPage key={route.id} id={route.id} step={route.step} servings={route.servings} defaultServings={settings.defaultServings} navToken={route} toulouse={settings.toulouse} />
       )}
-      {route.name === 'batch' && <BatchPage settings={settings} />}
       {route.name === 'semaine' && <SemainePage onChanged={refreshUrgent} settings={settings} onSettings={updateSettings} />}
       {route.name === 'stock' && <StockPage settings={settings} onSettings={updateSettings} onChanged={refreshUrgent} />}
-      {route.name === 'batch-cuisine' && <BatchCookPage step={route.step} navToken={route} toulouse={settings.toulouse} />}
       {!cooking && <TimerDock />}
       {!cooking && <TabBar active={tab} badges={{ ajouter: queueCount, semaine: urgent.semaine, stock: urgent.stock }} />}
     </div>

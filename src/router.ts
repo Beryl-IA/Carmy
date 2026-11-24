@@ -1,7 +1,7 @@
 // Navigation par ancre (#/recettes, #/recette/<id>…) : fonctionne hors-ligne et sous un sous-chemin GitHub Pages.
 import { useEffect, useState } from 'preact/hooks';
 
-export type Tab = 'recettes' | 'ajouter' | 'batch' | 'semaine' | 'stock' | 'courses' | 'reglages';
+export type Tab = 'recettes' | 'ajouter' | 'semaine' | 'stock' | 'courses' | 'reglages';
 export type Route =
   | { name: 'recettes' }
   | { name: 'recette'; id: string }
@@ -10,9 +10,6 @@ export type Route =
   /** Mode cuisine : étape (à partir de 0) et portions facultatives. */
   | { name: 'cuisine'; id: string; step?: number; servings?: number }
   | { name: 'ajouter' }
-  /** V2-J2b : session de batch cooking, et son mode cuisine (étape à partir de 0). */
-  | { name: 'batch' }
-  | { name: 'batch-cuisine'; step?: number }
   /** V2-J4 : planning de la semaine. */
   | { name: 'semaine' }
   /** 1.6.0 : stock (plats cuisinés et produits) ; #/reserve (V2-J3) y mène aussi. */
@@ -37,11 +34,6 @@ export function parseHash(hash: string): Route {
     }
     case 'reserve':
       return { name: 'stock' };
-    case 'batch': {
-      if (id !== 'cuisine') return { name: 'batch' };
-      const step = Number.parseInt(stepRaw, 10);
-      return { name: 'batch-cuisine', ...(step >= 0 ? { step } : {}) };
-    }
     case 'recette':
     case 'modifier':
       return id ? { name: page, id: decodeURIComponent(id) } : { name: 'recettes' };
@@ -59,7 +51,6 @@ export function parseHash(hash: string): Route {
 }
 
 export function routeToHash(r: Route): string {
-  if (r.name === 'batch-cuisine') return `#/batch/cuisine${r.step !== undefined ? `/${r.step}` : ''}`;
   if (r.name === 'cuisine') {
     const tail = r.servings ? `/${r.step ?? 0}/${r.servings}` : r.step !== undefined ? `/${r.step}` : '';
     return `#/cuisine/${encodeURIComponent(r.id)}${tail}`;
@@ -69,7 +60,6 @@ export function routeToHash(r: Route): string {
 
 export function tabOf(r: Route): Tab {
   if (r.name === 'aide') return 'reglages';
-  if (r.name === 'batch-cuisine') return 'batch';
   return r.name === 'recette' || r.name === 'modifier' || r.name === 'collections' || r.name === 'cuisine' ? 'recettes' : r.name;
 }
 

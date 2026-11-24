@@ -25,13 +25,9 @@ describe('router', () => {
     expect(routeToHash({ name: 'cuisine', id: 'a', servings: 2 })).toBe('#/cuisine/a/0/2');
     expect(parseHash(routeToHash({ name: 'cuisine', id: 'a b', step: 1, servings: 3 }))).toEqual({ name: 'cuisine', id: 'a b', step: 1, servings: 3 });
   });
-  it('gère la session de batch cooking', () => {
-    expect(parseHash('#/batch')).toEqual({ name: 'batch' });
-    expect(parseHash('#/batch/cuisine')).toEqual({ name: 'batch-cuisine' });
-    expect(parseHash('#/batch/cuisine/3')).toEqual({ name: 'batch-cuisine', step: 3 });
-    expect(routeToHash({ name: 'batch-cuisine', step: 2 })).toBe('#/batch/cuisine/2');
-    expect(tabOf({ name: 'batch-cuisine' })).toBe('batch');
-    expect(tabOf({ name: 'batch' })).toBe('batch');
+  it('ne connaît plus le batch cooking (retiré en 1.7.0)', () => {
+    expect(parseHash('#/batch')).toEqual({ name: 'recettes' });
+    expect(parseHash('#/batch/cuisine/3')).toEqual({ name: 'recettes' });
     expect(parseHash('#/semaine')).toEqual({ name: 'semaine' });
     expect(parseHash('#/reserve')).toEqual({ name: 'stock' });
     expect(parseHash('#/stock')).toEqual({ name: 'stock' });

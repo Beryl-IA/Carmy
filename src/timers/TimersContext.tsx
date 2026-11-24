@@ -161,7 +161,7 @@ export function TimerDock() {
           key={t.id}
           type="button"
           class={`dock-pill ${t.state}`}
-          onClick={() => navigate(t.recipeId === BATCH_TIMER_ID ? { name: 'batch-cuisine', step: t.stepIndex } : { name: 'cuisine', id: t.recipeId, step: t.stepIndex })}
+          onClick={() => navigate(t.recipeId === BATCH_TIMER_ID ? { name: 'recettes' } : { name: 'cuisine', id: t.recipeId, step: t.stepIndex })}
         >
           ⏱ {formatClock(remainingMs(t, now))}
           <span>{t.state === 'paused' ? 'en pause' : t.recipeTitle}</span>

@@ -159,7 +159,7 @@ export function SemainePage({ onChanged, settings, onSettings }: { onChanged: ()
           <button type="button" class="btn" onClick={fill}>✨ Remplir avec le stock ({free} portion{free > 1 ? 's' : ''} libre{free > 1 ? 's' : ''})</button>
         )}
         {free === 0 && emptySlots > 0 && !toulouse && (
-          <p class="muted small">Plus de portions de plats cuisinés en stock : lance une <a href="#/batch">session de batch cooking</a>, ou touche un créneau pour choisir une recette ou composer un repas simple avec tes produits.</p>
+          <p class="muted small">Plus de portions de plats cuisinés en stock : touche un créneau pour choisir une recette ou composer un repas simple avec tes produits.</p>
         )}
         {upcoming.length > 0 && (
           <button type="button" class="btn ghost danger-text"
