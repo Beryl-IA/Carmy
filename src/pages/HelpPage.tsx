@@ -108,6 +108,9 @@ export function HelpPage() {
         <h2>Courses</h2>
         <ul>
           <li>Ajoute des recettes depuis leur fiche (🛒) ou depuis l'onglet Courses, avec le nombre de portions voulu.</li>
+          <li><strong>Hors recette</strong> : tape ce qu'il te faut dans le champ en haut de Courses (« lait », « 2 kg pommes », « 6 œufs », « lessive ») puis Ajouter. La quantité est lue dans le texte et le rayon deviné (change-le dans la liste déroulante si besoin). Tes <strong>habituels</strong> apparaissent sous le champ : un tap pour les remettre ; « Gérer » pour en oublier.</li>
+          <li>Touche ✎ sur un article ajouté à la main pour le modifier ou le retirer. Ajouté deux fois, il se cumule (500 g + 1 kg = 1,5 kg).</li>
+          <li>Dans Stock, 🛒 remet un produit qui s'épuise dans la liste de courses.</li>
           <li>Les ingrédients identiques sont regroupés ; poids, volumes et pièces ne sont jamais mélangés.</li>
           <li>Ce que tu as toujours à la maison (sel, huile…) se règle dans Réglages › Garde-manger.</li>
         </ul>

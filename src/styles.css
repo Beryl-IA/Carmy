@@ -470,3 +470,18 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 .receipt-line.off { opacity: 0.55; }
 .receipt-line.off .receipt-head input[type='text'] { text-decoration: line-through; }
 .receipt-label { overflow-wrap: anywhere; }
+
+/* ---------- 1.12.0 : liste de courses hors recette ---------- */
+.quick-add { gap: 10px; }
+.quick-add-form { display: flex; gap: 8px; }
+.quick-add-form input { flex: 1; min-width: 0; }
+.quick-add-form .btn { flex: none; }
+.quick-preview { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.quick-preview .aisle-select { flex: none; max-width: 48%; font-size: 14px; min-height: 40px; padding: 6px 8px; }
+.quick-add .tags.suggestions { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.quick-add .tags.suggestions button { cursor: pointer; }
+.quick-add .habituals button { border-style: solid; border-color: #98E8DE; background: #D6F5F0; }
+.quick-add .habituals button.forget { border-style: dashed; border-color: var(--erreur); background: transparent; color: var(--erreur); }
+.quick-add .sheet-group { margin: 2px 0 0; }
+.stack.tight { gap: 6px; }
+.shop-edit { padding: 12px 0; }

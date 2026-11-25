@@ -6,7 +6,7 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 - Fonctionne hors-ligne, sauf l'extraction par IA.
 - Cahier des charges : [`docs/cahier-des-charges-carmy.md`](docs/cahier-des-charges-carmy.md).
 
-**État : V1 (jalons J0 à J7) et V2 (V2-J1 à V2-J4, batch cooking) livrées ; 1.6.0 : onglet Stock, repas simples, mode Toulouse ; 1.7.0 : onglet Batch retiré ; 1.9.0 : scan de ticket de caisse ou de commande drive ; 1.10.0 : produits du stock modifiables (nom, emoji, quantité) ; 1.11.0 : nouvelle palette de couleurs.**
+**État : V1 (jalons J0 à J7) et V2 (V2-J1 à V2-J4, batch cooking) livrées ; 1.6.0 : onglet Stock, repas simples, mode Toulouse ; 1.7.0 : onglet Batch retiré ; 1.9.0 : scan de ticket de caisse ou de commande drive ; 1.10.0 : produits du stock modifiables (nom, emoji, quantité) ; 1.11.0 : nouvelle palette de couleurs ; 1.12.0 : liste de courses hors recette.**
 
 ### Feuille de route V2 (batch cooking)
 
@@ -21,6 +21,7 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 | 1.9.0 | **Scan de ticket de caisse ou de commande drive** (photos ou captures) : Gemini lit les produits et les quantités totales, relecture (cocher, corriger nom, quantité, unité, rayon), puis ajout au stock avec cumul des quantités | ✅ 1.9.0 |
 | 1.10.0 | **Produits du stock modifiables à la main** : toucher un produit pour changer son nom, son emoji (choisi dans une grille ou tapé, « Auto » pour revenir à l'emoji automatique), sa quantité, son unité et son rayon ; renommé comme un produit existant, il s'y cumule | ✅ 1.10.0 |
 | 1.11.0 | **Nouvelle palette** : vert sapin `#2E4540` (texte), prune `#5B2A4A` (titres, boutons), menthe `#98E8DE` (pastilles, mises en avant), lin `#EEEAD7` (fond) | ✅ 1.11.0 |
+| 1.12.0 | **Liste de courses hors recette** : champ de saisie rapide en haut de Courses (« lait », « 2 kg pommes », « 500 g de farine »), quantité et unité lues dans le texte, rayon deviné (ou repris du stock et des recettes) et modifiable, suggestions pendant la frappe, **habituels** ajoutés en un tap, doublons cumulés (500 g + 1 kg = 1,5 kg), articles modifiables ou supprimables (✎) ; bouton 🛒 sur un produit du Stock pour le remettre dans la liste | ✅ 1.12.0 |
 
 ## Fonctionnalités
 
@@ -31,7 +32,7 @@ Appli personnelle de recettes, en **PWA pour iPhone** : elle transforme une vid�
 | **Mode cuisine** | Plein écran, une étape à la fois, glisser pour changer d'étape, ingrédients à portée, minuteurs multiples (pause, +1 min), alarme sonore et visuelle, écran maintenu allumé. |
 | **Semaine** | Planning du lundi au dimanche, midi et soir : plats cuisinés du stock, recettes à cuisiner ou **repas simple** hors recette (nom + produits du stock et quantités utilisées, réservés puis retirés quand le repas est mangé) ; « Remplir avec le stock » (ce qui périme d'abord, congélateur à partir du lendemain) ; rappels (sortir du congélateur la veille, plat périmé avant le repas, portions manquantes, « As-tu mangé … ? »). |
 | **Stock** | Plats cuisinés au frigo et au congélateur (portions, « à manger avant », −1 portion, congeler/décongeler, ajout de restes) ; produits achetés avec leurs quantités, ajoutés automatiquement en cochant les courses, ajoutables à la main et **modifiables (nom, emoji, quantité, unité, rayon)**, ou lus sur un **ticket de caisse ou une commande drive** (📷 photo ou captures, relecture avant ajout) ; interrupteur **mode Toulouse** ; pastille des plats à manger vite. |
-| **Courses** | Recettes choisies avec portions par recette, fusion des doublons et conversion d'unités, tri par rayon, garde-manger (« Déjà à la maison »), cases à cocher sauvegardées (**cocher = ajouter au stock, décocher = retirer**), ajout manuel. |
+| **Courses** | Recettes choisies avec portions par recette, fusion des doublons et conversion d'unités, tri par rayon, garde-manger (« Déjà à la maison »), cases à cocher sauvegardées (**cocher = ajouter au stock, décocher = retirer**), **articles hors recette** en saisie rapide (quantité et rayon devinés, suggestions, habituels, modifiables). |
 | **Réglages** | Clé API et modèle (avec tests), analyse rapide, portions par défaut, mode Toulouse, garde-manger, **sauvegarde / restauration**, aide, version. |
 
 ## Lancer en local

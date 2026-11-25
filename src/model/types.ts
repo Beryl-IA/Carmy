@@ -102,6 +102,19 @@ export interface ShoppingState {
   pantryOverrides: string[];
   /** 1.6.0 : ce que chaque ligne cochée a ajouté au stock (pour le retirer si on la décoche). */
   stocked: StockedLine[];
+  /** 1.12.0 : articles déjà ajoutés à la main, proposés en un tap (« Habituels »). Absent dans les anciennes données. */
+  recentItems?: RecentItem[];
+}
+
+/** Article habituel (déjà ajouté à la main), proposé en un tap. */
+export interface RecentItem {
+  name: string;
+  quantity: number | null;
+  unit: Unit;
+  aisle: Aisle;
+  /** Nombre d'ajouts : les plus fréquents d'abord. */
+  count: number;
+  lastAt: number;
 }
 
 /** Article entré en stock en cochant une ligne de courses. `created` : produit sans quantité créé par ce cochage. */

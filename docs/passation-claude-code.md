@@ -102,7 +102,7 @@ tests/                   *.test.ts (Vitest) — logique pure + IndexedDB simulé
 Points clés du modèle :
 - `Settings` : `apiKey?`, `model`, `defaultServings` (1), `fastMode`, `forceFilesApi`, `lastBackupAt?`, `recipesSinceBackup`, `firstLaunchAt?`, `backupSnoozeUntil?`. `saveSettings` relit `recipesSinceBackup` en base pour ne pas écraser l'incrément fait par `saveRecipe`.
 - `saveRecipe` incrémente `recipesSinceBackup` **uniquement à la création**.
-- Liste de courses **recalculée** (selections + manualItems + garde-manger) ; on ne stocke que les choix. Clé de ligne = `nomNormalisé|familleUnité` (familles : `masse`, `volume`, `sans_quantite`, ou l'unité comptable). Articles manuels : clé `manuel:<id>`, jamais fusionnés.
+- Liste de courses **recalculée** (selections + manualItems + garde-manger) ; on ne stocke que les choix. Clé de ligne = `nomNormalisé|familleUnité` (familles : `masse`, `volume`, `sans_quantite`, ou l'unité comptable). Articles manuels : clé `manuel:<id>`, jamais fusionnés avec les lignes des recettes ; 1.12.0 : un article manuel ajouté deux fois (même nom, même famille, non coché) se cumule (`src/model/groceries.ts`), et `recentItems` garde les habituels (30 max).
 - Sauvegarde JSON : `{ app:'carmy', format:1, exportedAt, appVersion, recipes (miniatures en data URL), collections, tags, pantry, settings (SANS apiKey), shopping }`. La file d'attente n'est pas sauvegardée.
 
 ## 6. Décisions et écarts au cahier des charges (déjà validés)
