@@ -1,7 +1,8 @@
 // Onglet Stock (1.6.0 ; ex-réserve V2-J3) : plats cuisinés (portions, frigo/congélateur, dates limites)
 // et produits achetés (quantités), ajoutés en cochant les courses ou à la main.
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { listRecipes, loadDishes, loadPantry, loadPlanning, loadStock, saveDishes, saveStock } from '../db/db';
+import { listRecipes, loadDishes, loadPantry, loadPlanning, loadShopping, loadStock, saveDishes, saveShopping, saveStock } from '../db/db';
+import { addManualItem } from '../model/groceries';
 import { ReceiptScanner } from '../components/ReceiptScanner';
 import { ToulouseSwitch } from '../components/ToulouseSwitch';
 import { plannedPortions, reservedProducts, type PlannedMeal } from '../model/planning';
@@ -70,6 +71,8 @@ export function ReserveSections({ dishes, recipes, plan, settings, onDishes: upd
   /** 1.9.0 : scanner de ticket ouvert, et message après l'ajout. */
   const [scanning, setScanning] = useState(false);
   const [scanDone, setScanDone] = useState('');
+  /** 1.12.0 : dernier produit envoyé dans la liste de courses. */
+  const [shopAdded, setShopAdded] = useState('');
   const now = Date.now();
 
   useEffect(() => {
@@ -87,6 +90,14 @@ export function ReserveSections({ dishes, recipes, plan, settings, onDishes: upd
 
   /** 1.10.0 : produit en cours de modification (nom, emoji, quantité). */
   const [editing, setEditing] = useState<string | null>(null);
+
+  /** 1.12.0 : « 🛒 » — un produit qui s'épuise part dans la liste de courses (sans quantité, à préciser là-bas). */
+  const toShopping = async (s: StockItem) => {
+    const shopping = await loadShopping();
+    const r = addManualItem(shopping, { name: s.name, quantity: null, unit: null, aisle: s.aisle }, newId);
+    await saveShopping(r.state);
+    setShopAdded(r.merged ? `${s.name} est déjà dans la liste de courses.` : `${s.name} ajouté à la liste de courses.`);
+  };
 
   const reserved = reservedProducts(plan);
   const reservedText = (s: StockItem) => {
@@ -199,6 +210,7 @@ export function ReserveSections({ dishes, recipes, plan, settings, onDishes: upd
                       </span>
                       <span class="stock-qty">{s.base === null ? 'en stock' : qty(stockDisplay(s))}</span>
                     </button>
+                    <button type="button" class="icon-btn" aria-label={`Ajouter ${s.name} à la liste de courses`} onClick={() => void toShopping(s)}>🛒</button>
                     <button type="button" class="icon-btn danger" aria-label={`${s.name} : terminé, retirer du stock`} onClick={() => updateStock(stock.filter((x) => x.id !== s.id))}>✕</button>
                   </li>
                 ))}
@@ -206,6 +218,7 @@ export function ReserveSections({ dishes, recipes, plan, settings, onDishes: upd
             </div>
           ))
         )}
+        {shopAdded && <p class="ok small" role="status">🛒 {shopAdded} <a href="#/courses">Voir la liste</a></p>}
         <StockForm onAdd={(e) => updateStock(addToStock(stock, [e], Date.now(), newId))} />
       </section>
 

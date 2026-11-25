@@ -1,12 +1,15 @@
-// Onglet Courses (F6) : recettes choisies, liste fusionnée par rayon, garde-manger, cases, ajout manuel.
+// Onglet Courses (F6) : recettes choisies, liste fusionnée par rayon, garde-manger, cases.
+// 1.12.0 : liste hors recette — saisie rapide en haut, habituels, articles ajoutés à la main modifiables.
 import { ingredientIcon } from '../model/icons';
 import { RecipePicker } from '../components/RecipePicker';
+import { QuickAdd, type NewItem } from '../components/QuickAdd';
+import { addManualItem, editManualItem, forgetItem, rememberItem, removeManualItem } from '../model/groceries';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { listRecipes, loadPantry, loadShopping, loadStock, saveShopping, saveStock } from '../db/db';
 import { addToStock, removeFromStock, stockKey, type StockItem } from '../model/stock';
 import { ToulouseSwitch } from '../components/ToulouseSwitch';
 import { AISLE_LABELS, formatQuantity, formatUnit } from '../format';
-import { parseQuantity } from '../model/draft';
+import { numberToInput, parseQuantity } from '../model/draft';
 import { buildShoppingList, lineKey, unitFamily, type ShoppingLine } from '../model/shopping';
 import { AISLES, UNITS, type Aisle, type PantryItem, type Recipe, type Settings, type ShoppingState, type Unit } from '../model/types';
 
@@ -23,6 +26,7 @@ export function ShoppingPage({ defaultServings, settings, onSettings }: { defaul
   const [picking, setPicking] = useState(false);
   const [openSources, setOpenSources] = useState<string | null>(null);
   const [stock, setStock] = useState<StockItem[]>([]);
+  const [editingItem, setEditingItem] = useState<string | null>(null);
 
   useEffect(() => {
     void Promise.all([listRecipes(), loadShopping(), loadPantry(), loadStock()]).then(([r, s, p, st]) => {
@@ -57,6 +61,15 @@ export function ShoppingPage({ defaultServings, settings, onSettings }: { defaul
   // Recettes supprimées de la bibliothèque : on ne les affiche pas.
   const selections = state.selections.filter((s) => byId.has(s.recipeId));
   const isEmpty = selections.length === 0 && state.manualItems.length === 0;
+  const recent = state.recentItems ?? [];
+  const inList = list.sections.flatMap((sec) => sec.lines).filter((l) => !l.checked).map((l) => l.name);
+
+  /** 1.12.0 : ajout hors recette ; cumulé avec la même ligne si elle existe déjà. */
+  const addItem = (item: NewItem): boolean => {
+    const r = addManualItem(state, item, newId);
+    update({ ...r.state, recentItems: rememberItem(recent, item, Date.now()) });
+    return r.merged;
+  };
   const checkedCount = list.total - list.remaining;
 
   const updateStock = (next: StockItem[]) => {
@@ -121,8 +134,8 @@ export function ShoppingPage({ defaultServings, settings, onSettings }: { defaul
   };
 
   const clearAll = () => {
-    if (!confirm('Vider la liste de courses ? Les recettes choisies et les articles ajoutés à la main seront retirés (ce qui est déjà en stock y reste).')) return;
-    update({ selections: [], manualItems: [], checkedKeys: [], removedKeys: [], pantryOverrides: [], stocked: [] });
+    if (!confirm('Vider la liste de courses ? Les recettes choisies et les articles ajoutés à la main seront retirés (ce qui est déjà en stock y reste, et tes habituels sont gardés).')) return;
+    update({ selections: [], manualItems: [], checkedKeys: [], removedKeys: [], pantryOverrides: [], stocked: [], recentItems: state.recentItems });
   };
 
   return (
@@ -134,11 +147,21 @@ export function ShoppingPage({ defaultServings, settings, onSettings }: { defaul
 
       <ToulouseSwitch banner settings={settings} onChange={onSettings} />
 
+      <QuickAdd
+        recent={recent}
+        stock={stock}
+        recipes={recipes}
+        pantry={pantry}
+        inList={inList}
+        onAdd={addItem}
+        onForget={(name) => update({ ...state, recentItems: forgetItem(recent, name) })}
+      />
+
       {isEmpty && (
         <section class="card empty">
           <span class="empty-icon" aria-hidden="true">🛒</span>
           <h2 class="card-title">Ta liste est vide</h2>
-          <p class="muted">Choisis des recettes : leurs ingrédients seront regroupés et rangés par rayon.</p>
+          <p class="muted">Tape ci-dessus ce qu'il te faut (lait, 2 kg pommes, lessive…) ou choisis des recettes : leurs ingrédients seront regroupés et rangés par rayon.</p>
           {recipes.length > 0 ? (
             <button type="button" class="btn" onClick={() => setPicking(true)}>Choisir des recettes</button>
           ) : (
@@ -178,13 +201,29 @@ export function ShoppingPage({ defaultServings, settings, onSettings }: { defaul
             </button>
             {open && (
               <ul class="shop-lines">
-                {sec.lines.map((l) => (
+                {sec.lines.map((l) => l.origin === 'manual' && editingItem === l.key ? (
+                  <li key={l.key} class="shop-line shop-edit">
+                    <ManualItemEditor
+                      line={l}
+                      onCancel={() => setEditingItem(null)}
+                      onSave={(edit) => {
+                        update(editManualItem(state, l.key.slice('manuel:'.length), edit));
+                        setEditingItem(null);
+                      }}
+                      onDelete={() => {
+                        update(removeManualItem(state, l.key.slice('manuel:'.length)));
+                        setEditingItem(null);
+                      }}
+                    />
+                  </li>
+                ) : (
                   <ShopLine
                     key={l.key}
                     line={l}
                     onToggle={() => toggle(l)}
                     sourcesOpen={openSources === l.key}
                     onSources={() => setOpenSources(openSources === l.key ? null : l.key)}
+                    onEdit={() => setEditingItem(l.key)}
                     sources={l.recipeIds.map((id) => byId.get(id)?.title).filter((t): t is string => Boolean(t))}
                   />
                 ))}
@@ -223,8 +262,6 @@ export function ShoppingPage({ defaultServings, settings, onSettings }: { defaul
         </section>
       )}
 
-      {!isEmpty || recipes.length > 0 ? <ManualItemForm onAdd={(item) => update({ ...state, manualItems: [...state.manualItems, item] })} /> : null}
-
       {checkedCount > 0 && (
         <p class="muted small center" role="status">
           {settings.toulouse
@@ -258,8 +295,8 @@ function qtyText(l: Pick<ShoppingLine, 'quantity' | 'unit'>): string {
   return [formatQuantity(l.quantity), formatUnit(l.unit, l.quantity)].filter(Boolean).join(' ');
 }
 
-function ShopLine({ line, onToggle, sources, sourcesOpen, onSources }: {
-  line: ShoppingLine; onToggle: () => void; sources: string[]; sourcesOpen: boolean; onSources: () => void;
+function ShopLine({ line, onToggle, sources, sourcesOpen, onSources, onEdit }: {
+  line: ShoppingLine; onToggle: () => void; sources: string[]; sourcesOpen: boolean; onSources: () => void; onEdit: () => void;
 }) {
   return (
     <li class={`shop-line ${line.checked ? 'checked' : ''}`}>
@@ -279,54 +316,35 @@ function ShopLine({ line, onToggle, sources, sourcesOpen, onSources }: {
           {sources.length > 1 ? `×${sources.length}` : 'ⓘ'}
         </button>
       ) : line.origin === 'manual' ? (
-        <span class="src-btn muted" title="Ajouté à la main">✎</span>
+        <button type="button" class="src-btn" aria-label={`Modifier ${line.name} (ajouté à la main)`} onClick={onEdit}>✎</button>
       ) : null}
     </li>
   );
 }
 
-function ManualItemForm({ onAdd }: { onAdd: (item: ShoppingState['manualItems'][number]) => void }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [qty, setQty] = useState('');
-  const [unit, setUnit] = useState<Unit>(null);
-  const [aisle, setAisle] = useState<Aisle>('autre');
+/** 1.12.0 : modification d'un article ajouté à la main (nom, quantité, unité, rayon) ou suppression. */
+function ManualItemEditor({ line, onSave, onCancel, onDelete }: {
+  line: ShoppingLine;
+  onSave: (e: { name: string; quantity: number | null; unit: Unit; aisle: Aisle }) => void;
+  onCancel: () => void;
+  onDelete: () => void;
+}) {
+  const [name, setName] = useState(line.name);
+  const [qty, setQty] = useState(numberToInput(line.quantity));
+  const [unit, setUnit] = useState<Unit>(line.unit);
+  const [aisle, setAisle] = useState<Aisle>(line.aisle);
   const [error, setError] = useState('');
 
-  if (!open)
-    return (
-      <button type="button" class="btn secondary" onClick={() => setOpen(true)}>+ Ajouter un article</button>
-    );
-
   const submit = () => {
-    const n = name.trim();
-    if (!n) return;
+    if (!name.trim()) return setError("Donne un nom à l'article.");
     const q = parseQuantity(qty);
-    if (q === undefined) {
-      setError('Quantité illisible (exemples : 2, 1,5, 1/2).');
-      return;
-    }
-    onAdd({
-      id: crypto.randomUUID ? crypto.randomUUID() : `m${Date.now()}`,
-      name: n.toLowerCase(), quantity: q && q > 0 ? q : null, unit: q ? unit : null, aisle,
-      checked: false, origin: 'manual', recipeIds: [],
-    });
-    setName('');
-    setQty('');
-    setUnit(null);
-    setError('');
+    if (q === undefined) return setError('Quantité illisible (exemples : 2, 1,5, 1/2).');
+    onSave({ name, quantity: q && q > 0 ? q : null, unit: q ? unit : null, aisle });
   };
 
   return (
-    <form
-      class="card stack"
-      onSubmit={(e) => {
-        e.preventDefault();
-        submit();
-      }}
-    >
-      <h2 class="card-title">Ajouter un article</h2>
-      <input type="text" aria-label="Article" placeholder="Ex. : papier cuisson, yaourts…" value={name} onInput={(e) => setName(e.currentTarget.value)} />
+    <form class="stack grow" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+      <input type="text" aria-label="Article" autocapitalize="off" value={name} onInput={(e) => setName(e.currentTarget.value)} />
       <div class="ing-line">
         <input class="qty-input" type="text" inputMode="decimal" aria-label="Quantité (facultative)" placeholder="Qté" value={qty} onInput={(e) => setQty(e.currentTarget.value)} />
         <select class="unit-select" aria-label="Unité" value={unit ?? ''} onChange={(e) => setUnit((e.currentTarget.value || null) as Unit)}>
@@ -337,10 +355,11 @@ function ManualItemForm({ onAdd }: { onAdd: (item: ShoppingState['manualItems'][
           {AISLES.map((a) => <option key={a} value={a}>{AISLE_LABELS[a]}</option>)}
         </select>
       </div>
-      {error && <p class="error small">{error}</p>}
+      {error && <p class="error small" role="alert">{error}</p>}
       <div class="row nowrap">
-        <button type="button" class="btn ghost" onClick={() => setOpen(false)}>Fermer</button>
-        <button type="submit" class="btn grow" disabled={!name.trim()}>Ajouter</button>
+        <button type="button" class="icon-btn danger" aria-label={`Retirer ${line.name} de la liste`} onClick={onDelete}>✕</button>
+        <button type="button" class="btn ghost" onClick={onCancel}>Annuler</button>
+        <button type="submit" class="btn grow" disabled={!name.trim()}>Enregistrer</button>
       </div>
     </form>
   );
